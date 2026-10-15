@@ -1,0 +1,59 @@
+{
+  "name": "sistema_gestion_horarios_reuniones_proyectos_backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "dev": "tsx watch src/app.ts",
+    "build": "tsc",
+    "start": "node dist/app.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gg1700/Sistema_Gestion_Horarios_Reuniones_Proyectos_Backend.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/gg1700/Sistema_Gestion_Horarios_Reuniones_Proyectos_Backend/issues"
+  },
+  "homepage": "https://github.com/gg1700/Sistema_Gestion_Horarios_Reuniones_Proyectos_Backend#readme",
+  "devDependencies": {
+    "@eslint/css": "^2.0.0",
+    "@eslint/js": "^9.39.5",
+    "@eslint/json": "^2.1.1",
+    "@eslint/markdown": "^8.0.3",
+    "@stylistic/eslint-plugin": "^5.10.0",
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/dotenv": "^6.1.1",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.5",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "jiti": "^2.7.0",
+    "prettier": "^3.9.10",
+    "standard": "^17.1.2",
+    "tsx": "^4.23.15",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.71.2"
+  },
+  "dependencies": {
+    "@types/pg": "^8.23.1",
+    "bcrypt": "^6.0.0",
+    "cors": "^2.8.6",
+    "dotenv": "^18.0.8",
+    "express": "^5.3.0",
+    "pg": "^8.23.1"
+  },
+  "eslintConfig": {
+    "extends": "./node_modules/standard/eslintrc.json"
+  }
+}

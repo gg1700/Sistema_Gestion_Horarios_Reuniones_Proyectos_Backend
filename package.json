@@ -11,7 +11,9 @@
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "migrate-db": "tsx db/scripts/migrate.ts",
+    "reset-db": "tsx db/scripts/reset.ts"
   },
   "repository": {
     "type": "git",

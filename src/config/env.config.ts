@@ -14,4 +14,5 @@ export const env = {
   NODE_ENV: verifyEnvVariables("NODE_ENV", "development"),
   PORT: verifyEnvVariables("PORT", "3000"),
   DB_URL: verifyEnvVariables("DB_URL", undefined),
+  LOCAL_DB_URL: verifyEnvVariables("LOCAL_DB_URL", undefined),
 };

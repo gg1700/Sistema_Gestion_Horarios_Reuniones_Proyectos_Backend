@@ -8,7 +8,7 @@ import type {
 } from "../types/publicLink";
 
 interface PublicLinkRow extends QueryResultRow {
-  id: string | number;
+  id: string;
   handle_name: string;
   public_link_active: boolean;
 }
@@ -25,7 +25,7 @@ export const publicLinkRepository: PublicLinkRepository = {
   async findByUserId(userId: PublicLinkUserId) {
     const result = await pool.query<PublicLinkRow>(
       `SELECT id, handle_name, public_link_active
-       FROM public.users
+       FROM public."user"
        WHERE id = $1
        LIMIT 1`,
       [userId]
@@ -38,7 +38,7 @@ export const publicLinkRepository: PublicLinkRepository = {
   async findByHandle(handleName: string) {
     const result = await pool.query<PublicLinkRow>(
       `SELECT id, handle_name, public_link_active
-       FROM public.users
+       FROM public."user"
        WHERE LOWER(handle_name) = LOWER($1)
        LIMIT 1`,
       [handleName]
@@ -50,7 +50,7 @@ export const publicLinkRepository: PublicLinkRepository = {
 
   async updateByUserId(userId: PublicLinkUserId, changes: PublicLinkChanges) {
     const assignments: string[] = [];
-    const values: (string | number | boolean)[] = [];
+    const values: (string | boolean)[] = [];
 
     if (changes.handleName !== undefined) {
       values.push(changes.handleName);
@@ -69,7 +69,7 @@ export const publicLinkRepository: PublicLinkRepository = {
     values.push(userId);
 
     const result = await pool.query<PublicLinkRow>(
-      `UPDATE public.users
+      `UPDATE public."user"
        SET ${assignments.join(", ")}, updated_at = NOW()
        WHERE id = $${values.length}
        RETURNING id, handle_name, public_link_active`,

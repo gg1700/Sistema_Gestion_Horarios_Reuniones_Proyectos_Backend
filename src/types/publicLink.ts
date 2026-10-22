@@ -1,4 +1,4 @@
-export type PublicLinkUserId = string | number;
+export type PublicLinkUserId = string;
 
 export interface PublicLinkAccount {
   userId: PublicLinkUserId;

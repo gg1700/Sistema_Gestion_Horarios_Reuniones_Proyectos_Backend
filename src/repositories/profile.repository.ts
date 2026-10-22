@@ -166,7 +166,8 @@ export async function updateWorkExperience(id: string, userId: string, workExpIn
     setStatement.push(`${key} = $${i + 1}`);
   });
   const query = `UPDATE "workexperience"
-    SET ${setStatement.join(", ")}
+    SET ${setStatement.join(", ")},
+    updated_at = now()
     WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
   await processReturnQuery(query, values);
 }

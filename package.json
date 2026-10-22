@@ -13,7 +13,8 @@
     "start": "node dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate-db": "tsx db/scripts/migrate.ts",
-    "reset-db": "tsx db/scripts/reset.ts"
+    "reset-db": "tsx db/scripts/reset.ts",
+    "my-migrations": "tsx db/my_scripts/migrate.ts"
   },
   "repository": {
     "type": "git",

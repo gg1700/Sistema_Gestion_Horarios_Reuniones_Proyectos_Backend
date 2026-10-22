@@ -107,7 +107,7 @@ export async function updateLinkInfo(userId: string, links: ProfileTypes.LinkDB[
 }
 
 export async function findCountriesByName(countries: ProfileTypes.CountryDB[]) {
-  const query = `SELECT c.name FROM "country" c
+  const query = `SELECT * FROM "country" c
     JOIN UNNEST($1::text[]) AS t(name) ON c.name = t.name`;
   const values = [countries.map(c => c.name)];
   const foundCountries = await processReturnQuery(query, values);

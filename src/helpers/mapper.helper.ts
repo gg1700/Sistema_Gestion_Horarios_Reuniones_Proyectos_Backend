@@ -1,4 +1,5 @@
 import * as ProfileTypes from "../types/profile.types";
+import * as WorkExpTypes from "../types/work_experience.types";
 
 function surnameToDB(surname: ProfileTypes.Surname) {
   const result = {
@@ -57,13 +58,24 @@ function countryToDB(country: ProfileTypes.Country) {
 
 export function editablePersonalInfoToDB(payload: ProfileTypes.EditablePersonalInfo) {
   const result: ProfileTypes.EditablePersonalInfoDB = {};
-  if (payload.name) result.name = payload.name;
-  if (payload.firstSurname) result.first_surname = payload.firstSurname;
-  if (payload.surname) result.surname = surnameToDB(payload.surname);
-  if (payload.phones) result.phones = payload.phones.map(phone => phoneToDB(phone));
-  if (payload.contactEmails) result.contact_emails = payload.contactEmails.map(email => contactEmailToDB(email));
-  if (payload.addresses) result.addresses = payload.addresses.map(address => addressToDB(address));
-  if (payload.links) result.links = payload.links.map(link => linkToDB(link));
-  if (payload.countries) result.countries = payload.countries.map(country => countryToDB(country)); 
+  if (payload.name !== undefined) result.name = payload.name;
+  if (payload.firstSurname !== undefined) result.first_surname = payload.firstSurname;
+  if (payload.surname !== undefined) result.surname = surnameToDB(payload.surname);
+  if (payload.phones !== undefined) result.phones = payload.phones.map(phone => phoneToDB(phone));
+  if (payload.contactEmails !== undefined) result.contact_emails = payload.contactEmails.map(email => contactEmailToDB(email));
+  if (payload.addresses !== undefined) result.addresses = payload.addresses.map(address => addressToDB(address));
+  if (payload.links !== undefined) result.links = payload.links.map(link => linkToDB(link));
+  if (payload.countries !== undefined) result.countries = payload.countries.map(country => countryToDB(country)); 
+  return result;
+}
+
+export function editableWorkExperienceToDB(payload: WorkExpTypes.EditableWorkExperience) {
+  const result: WorkExpTypes.EditableWorkExperienceDB = {};
+  if (payload.title !== undefined) result.title = payload.title;
+  if (payload.description !== undefined) result.description = payload.description;
+  if (payload.companyName !== undefined) result.company_name = payload.companyName;
+  if (payload.visibility !== undefined) result.visible = payload.visibility;
+  if (payload.startDate !== undefined) result.start_date = payload.startDate;
+  if (payload.endDate !== undefined) result.end_date = payload.endDate;
   return result;
 }

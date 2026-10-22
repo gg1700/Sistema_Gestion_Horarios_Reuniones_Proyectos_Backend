@@ -11,6 +11,13 @@ router.patch(
   MulterCheck.checkMulterErrors,
   SharpCheck.verifyProfilePictureDimensions,
   Validations.modifyPersonalInfo,
-  ProfileController.modifyPersonalInfo);
+  ProfileController.modifyPersonalInfo
+);
+
+router.patch(
+  "/work-experience/:id",
+  Validations.modifyWorkExperience,
+  ProfileController.modifyWorkExperience
+);
 
 export default router;

@@ -36,7 +36,7 @@ function validateContactEmail(contactEmail: unknown) {
     throw new ValidationError("Tipo de dato invalido en correo de contacto");
   }
   const formatedEmail = email.trim().replace(/\s+/g, '').toLowerCase();
-  if ((formatedEmail.length < 0 || formatedEmail.length > 200) || !RegexConstants.regexEmail.test(formatedEmail)) {
+  if ((formatedEmail.length < 1 || formatedEmail.length > 200) || !RegexConstants.regexEmail.test(formatedEmail)) {
     throw new ValidationError("Formato de correo electronico invalido");
   }
   return { id: formatedId, email: formatedEmail,  visibility: GeneralValidations.validateVisibility(visibility) };
@@ -49,7 +49,7 @@ function validateAdress(add: unknown) {
     throw new ValidationError("Tipo de dato valido en direccion");
   }
   const formatedAddress = capitalize(collapseSpaces(address));
-  if (formatedAddress.length < 0 || formatedAddress.length > 300) {
+  if (formatedAddress.length < 1 || formatedAddress.length > 300) {
     throw new ValidationError("Direccion con cantidad de caracteres invalida");
   }
   return { id: formatedId, address: formatedAddress, visibility: GeneralValidations.validateVisibility(visibility) };
@@ -63,7 +63,7 @@ function validateLink(link: unknown) {
   }
   const formatedText = capitalize(collapseSpaces(text));
   const rawURL = url.trim();
-  if ((rawURL.length < 0 || rawURL.length > 2048) || (!RegexConstants.regexURL.test(rawURL))) {
+  if ((rawURL.length < 1 || rawURL.length > 2048) || (!RegexConstants.regexURL.test(rawURL))) {
     throw new ValidationError("Formato de URL invalido");
   }
   const formatedURL = RegexConstants.regexURLScheme.test(rawURL) ? rawURL : `https://${rawURL}`;
@@ -87,13 +87,13 @@ function validateCountry(country: unknown) {
 export function validateEditablePersonalInfo(payload: unknown) {
   const p = payload as ProfileTypes.EditablePersonalInfo;
   const proccessedInfo: ProfileTypes.EditablePersonalInfo = {};
-  if (p.name) proccessedInfo.name = GeneralValidations.validateProperNoun(p.name, "Nombre");
-  if (p.firstSurname) proccessedInfo.firstSurname = GeneralValidations.validateProperNoun(p.firstSurname, "Primer Apellido");
-  if (p.surname) proccessedInfo.surname = validateSurname(p.surname) as ProfileTypes.Surname;
-  if (p.phones) proccessedInfo.phones = GeneralValidations.validateList(p.phones, validatePhone, "Telefonos");
-  if (p.contactEmails) proccessedInfo.contactEmails = GeneralValidations.validateList(p.contactEmails, validateContactEmail, "Correos de Contacto")
-  if (p.addresses) proccessedInfo.addresses = GeneralValidations.validateList(p.addresses, validateAdress, "Direcciones");
-  if (p.links) proccessedInfo.links = GeneralValidations.validateList(p.links, validateLink, "Enlaces");
-  if (p.countries) proccessedInfo.countries = GeneralValidations.validateList(p.countries, validateCountry, "Paises")
+  if (p.name !== undefined) proccessedInfo.name = GeneralValidations.validateProperNoun(p.name, "Nombre");
+  if (p.firstSurname !== undefined) proccessedInfo.firstSurname = GeneralValidations.validateProperNoun(p.firstSurname, "Primer Apellido");
+  if (p.surname !== undefined) proccessedInfo.surname = validateSurname(p.surname) as ProfileTypes.Surname;
+  if (p.phones !== undefined) proccessedInfo.phones = GeneralValidations.validateList(p.phones, validatePhone, "Telefonos");
+  if (p.contactEmails !== undefined) proccessedInfo.contactEmails = GeneralValidations.validateList(p.contactEmails, validateContactEmail, "Correos de Contacto")
+  if (p.addresses !== undefined) proccessedInfo.addresses = GeneralValidations.validateList(p.addresses, validateAdress, "Direcciones");
+  if (p.links !== undefined) proccessedInfo.links = GeneralValidations.validateList(p.links, validateLink, "Enlaces");
+  if (p.countries !== undefined) proccessedInfo.countries = GeneralValidations.validateList(p.countries, validateCountry, "Paises")
   return proccessedInfo;
 }

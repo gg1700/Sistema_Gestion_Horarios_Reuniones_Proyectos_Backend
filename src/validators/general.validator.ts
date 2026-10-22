@@ -27,8 +27,16 @@ export function validateVisibility(value: unknown) {
 }
 
 export function validateId(id: unknown) {
-  if (typeof id !== "string") {
+  if (!id || typeof id !== "string") {
     throw new ValidationError("Id invalido");
   }
   return id;
+}
+
+export function validateDate(value: unknown, field: string) {
+  const formatedValue = new Date(value as string);
+  if (isNaN(formatedValue.getTime()) || !(formatedValue instanceof Date)) {
+    throw new ValidationError(`${field}: fecha invalida`);
+  }
+  return formatedValue;
 }

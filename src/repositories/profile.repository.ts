@@ -1,10 +1,11 @@
 import { processReturnQuery } from "../utils/query";
 import { PoolClient } from "pg";
 import * as ProfileTypes from "../types/profile.types";
+import * as WorkExpTypes from "../types/work_experience.types";
 
 export async function existsUser(userId: string) {
   const query = `
-    SELECT id FROM "user"
+    SELECT * FROM "user"
     WHERE id = $1`;
   const values = [userId];
   const userFound = await processReturnQuery(query, values);
@@ -139,4 +140,33 @@ export async function confirmProfileUpdate(userId: string, client: PoolClient) {
     WHERE id = $1`;
   const values = [userId];
   await client.query(query, values);
+}
+
+export async function existsWorkExperience(id: string, userId: string) {
+  const query = `SELECT * FROM "workexperience"
+    WHERE id = $1 AND user_id = $2`;
+  const values = [id, userId];
+  const workExpFound = await processReturnQuery(query, values);
+  return (workExpFound.length !== 0);
+}
+
+export async function findWorkExperience(id: string, userId: string) {
+  const query = `SELECT * FROM "workexperience"
+    WHERE id = $1 AND user_id = $2`;
+  const values = [id, userId];
+  const workExp = await processReturnQuery(query, values);
+  return workExp;
+}
+
+export async function updateWorkExperience(id: string, userId: string, workExpInfo: WorkExpTypes.EditableWorkExperienceDB) {
+  const setStatement: string[] = [];
+  const values = Object.values(workExpInfo);
+  values.push(id, userId);
+  Object.keys(workExpInfo).forEach((key, i) => {
+    setStatement.push(`${key} = $${i + 1}`);
+  });
+  const query = `UPDATE "workexperience"
+    SET ${setStatement.join(", ")}
+    WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
+  await processReturnQuery(query, values);
 }

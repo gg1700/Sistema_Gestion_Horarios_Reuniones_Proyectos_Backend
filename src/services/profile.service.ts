@@ -1,10 +1,12 @@
 import * as ProfileTypes from "../types/profile.types";
 import * as ProfileRepo from "../repositories/profile.repository";
-import { editablePersonalInfoToDB } from "../helpers/mapper.helper";
+import * as Mapper from "../helpers/mapper.helper";
 import { processTransaction } from "../utils/query";
 import { PoolClient } from "pg";
 import { ValidationError } from "../helpers/errors.helper";
 import * as ImageService from "./image.service";
+import * as WorkExpTypes from "../types/work_experience.types";
+import { today, tody60YearsAgo } from "../utils/constants/date.constants";
 
 export async function modifyPersonalInfo(
   userId: string,
@@ -14,7 +16,7 @@ export async function modifyPersonalInfo(
     const userFound = await ProfileRepo.existsUser(userId);
     if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
 
-    const formatedInfo = editablePersonalInfoToDB(editablePersonalInfo);
+    const formatedInfo = Mapper.editablePersonalInfoToDB(editablePersonalInfo);
 
     await processTransaction<unknown>(async function (client: PoolClient) {
       const userInfo: Record<string, any> = {};
@@ -56,6 +58,41 @@ export async function modifyPersonalInfo(
     });
 
     return { result: true, statusCode: 200, message: "Infomacion personal modificada correctamente" };
+  } catch (err) {
+    return { result: false, statusCode: 500, message: (err as Error).message };
+  }
+}
+
+export async function modifyWorkExperience(
+  id: string,
+  userId: string,
+  editableWorkExperienceInfo: WorkExpTypes.EditableWorkExperience) {
+  try {
+    const userFound = await ProfileRepo.existsUser(userId);
+    if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" }
+    
+    const workExpFound = await ProfileRepo.existsWorkExperience(id, userId);
+    if (!workExpFound) return { result: false, statusCode: 404, message: "La experiencia profesional a modificar no existe" };
+
+    const formatedInfo = Mapper.editableWorkExperienceToDB(editableWorkExperienceInfo);
+    const workExp = await ProfileRepo.findWorkExperience(id, userId);
+
+    if (formatedInfo.start_date){
+      if (formatedInfo.start_date > today) throw new ValidationError("La fecha de inicio no puede ser futura");
+      if (formatedInfo.start_date < tody60YearsAgo) throw new ValidationError("La fecha de inicio no puede ser tan antigua");
+    }
+    if (formatedInfo.end_date) {
+      if (formatedInfo.end_date > today) throw new ValidationError("La fecha de fin no puede ser futura");
+
+      const currentStartDate = (!formatedInfo.start_date) ? workExp[0].start_date : formatedInfo.start_date;
+      if (currentStartDate >= formatedInfo.end_date) {
+        throw new ValidationError("La fecha de inicio no puede ser posterior fecha de fin"); 
+      }
+      if (formatedInfo.end_date < tody60YearsAgo) throw new ValidationError("La fecha de fin no puede ser tan antigua");
+    }
+
+    await ProfileRepo.updateWorkExperience(id, userId, formatedInfo);
+    return { result: true, statusCode: 200, message: "Informacion de experiencia profesional modificada correctamente" };
   } catch (err) {
     return { result: false, statusCode: 500, message: (err as Error).message };
   }

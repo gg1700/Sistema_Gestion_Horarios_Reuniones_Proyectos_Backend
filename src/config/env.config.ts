@@ -15,4 +15,7 @@ export const env = {
   PORT: verifyEnvVariables("PORT", "3000"),
   DB_URL: verifyEnvVariables("DB_URL", undefined),
   LOCAL_DB_URL: verifyEnvVariables("LOCAL_DB_URL", undefined),
+  CLOUDINARY_CLOUD_NAME: verifyEnvVariables("CLOUDINARY_CLOUD_NAME", undefined),
+  CLOUDINARY_API_KEY: verifyEnvVariables("CLOUDINARY_API_KEY", undefined),
+  CLOUDINARY_API_SECRET: verifyEnvVariables("CLOUDINARY_API_SECRET", undefined)
 };

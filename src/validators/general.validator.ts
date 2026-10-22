@@ -13,11 +13,11 @@ export function validateProperNoun(value: unknown, field: string) {
   return formatedValue;
 }
 
-export function validateList<T>(value: unknown, itemValidator: (item: unknown) => T, field: string) {
+export function validateList(value: unknown, itemValidator: any ,field: string) {
   if (!Array.isArray(value) || value.length === 0) {
     throw new ValidationError(`${field}: lista invalida o vacia`)
   }
-  return value.map(item => itemValidator(item));
+  return value.map(v => itemValidator(v));
 }
 
 export function validateVisibility(value: unknown) {
@@ -28,10 +28,18 @@ export function validateVisibility(value: unknown) {
 }
 
 export function validateId(id: unknown) {
-  if (typeof id !== "string") {
+  if (!id || typeof id !== "string") {
     throw new ValidationError("Id invalido");
   }
   return id;
+}
+
+export function validateDate(value: unknown, field: string) {
+  const formatedValue = new Date(value as string);
+  if (isNaN(formatedValue.getTime()) || !(formatedValue instanceof Date)) {
+    throw new ValidationError(`${field}: fecha invalida`);
+  }
+  return formatedValue;
 }
 
 export function validateObject(value: unknown, field: string) {

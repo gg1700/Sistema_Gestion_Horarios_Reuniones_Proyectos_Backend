@@ -1,12 +1,11 @@
+-- Requires the base user table migration.
 
--- Requires migration 001-create-user-table.
-
--- Reject handles that cannot be normalized safely.
+-- Validate existing handles before normalization.
 DO $$
 BEGIN
   IF EXISTS (
     SELECT 1
-    FROM public.users
+    FROM public."user"
     WHERE handle_name IS NULL
        OR LOWER(BTRIM(handle_name)) !~ '^[a-z0-9-]{3,50}$'
   ) THEN
@@ -15,7 +14,7 @@ BEGIN
 
   IF EXISTS (
     SELECT 1
-    FROM public.users
+    FROM public."user"
     GROUP BY LOWER(BTRIM(handle_name))
     HAVING COUNT(*) > 1
   ) THEN
@@ -25,15 +24,22 @@ END
 $$;
 
 -- Normalize existing handles.
-UPDATE public.users
+UPDATE public."user"
 SET handle_name = LOWER(BTRIM(handle_name))
 WHERE handle_name IS DISTINCT FROM LOWER(BTRIM(handle_name));
 
 -- Add public link activation status.
-ALTER TABLE public.users
+ALTER TABLE public."user"
   ADD COLUMN public_link_active BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- Enforce valid handle format.
-ALTER TABLE public.users
-  ADD CONSTRAINT users_handle_name_format_check
-  CHECK (handle_name IS NOT NULL AND handle_name ~ '^[a-z0-9-]{3,50}$');
+ALTER TABLE public."user"
+  ADD CONSTRAINT user_handle_name_format_check
+  CHECK (
+    handle_name IS NOT NULL
+    AND handle_name ~ '^[a-z0-9-]{3,50}$'
+  );
+
+-- Enforce case-insensitive uniqueness.
+CREATE UNIQUE INDEX user_handle_name_lower_idx
+  ON public."user" (LOWER(handle_name));

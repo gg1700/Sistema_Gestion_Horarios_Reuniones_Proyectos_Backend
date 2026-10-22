@@ -21,4 +21,6 @@ export const env = {
   GOOGLE_CLIENT_SECRET: verifyEnvVariables("GOOGLE_CLIENT_SECRET", undefined),
   GITHUB_CLIENT_ID: verifyEnvVariables("GITHUB_CLIENT_ID", undefined),
   GITHUB_CLIENT_SECRET: verifyEnvVariables("GITHUB_CLIENT_SECRET", undefined),
+  JWT_SECRET: verifyEnvVariables("JWT_SECRET", undefined),
+  JWT_EXPIRES_IN: verifyEnvVariables("JWT_EXPIRES_IN", "1d")
 };

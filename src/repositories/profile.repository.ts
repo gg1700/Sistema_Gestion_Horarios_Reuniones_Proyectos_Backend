@@ -106,6 +106,25 @@ export async function updateLinkInfo(userId: string, links: ProfileTypes.LinkDB[
   await client.query(query, values);
 }
 
+export async function findCountriesByName(countries: ProfileTypes.CountryDB[]) {
+  const query = `SELECT c.name FROM "country" c
+    JOIN UNNEST($1::text[]) AS t(name) ON c.name = t.name`;
+  const values = [countries.map(c => c.name)];
+  const foundCountries = await processReturnQuery(query, values);
+  return foundCountries;
+}
+
+export async function updateCountryInfo(userId: string, countries: ProfileTypes.CountryDB[], client: PoolClient) {
+  const query = `UPDATE "user_country" uc SET
+    country_id = c.id,
+    visible = t.visible
+    FROM UNNEST($2::uuid[], $3::text[], $4::bool[]) AS t(id, name, visible)
+    JOIN "country" c ON c.name = t.name
+    WHERE uc.id = t.id AND uc.user_id = $1::uuid`;
+  const values = [userId, countries.map(c => c.id), countries.map(c => c.name), countries.map(c => c.visible)];
+  await client.query(query, values);
+}
+
 export async function updateProfilePicture(userId: string, url: string, client: PoolClient) {
   const query = `UPDATE "user"
     SET profile_picture = $2, updated_at = now()

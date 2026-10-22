@@ -44,7 +44,14 @@ export async function modifyPersonalInfo(
       }
       if (formatedInfo.addresses) await ProfileRepo.updateAddressInfo(userId, formatedInfo.addresses, client); 
       if (formatedInfo.links) await ProfileRepo.updateLinkInfo(userId, formatedInfo.links, client);
-    
+      
+      if (formatedInfo.countries) {
+        const countries = await ProfileRepo.findCountriesByName(formatedInfo.countries);
+        if (countries.length !== formatedInfo.countries.length) throw new ValidationError("Pais o paises no encontrados"); 
+
+        await ProfileRepo.updateCountryInfo(userId, formatedInfo.countries, client); 
+      }
+
       await ProfileRepo.confirmProfileUpdate(userId, client);
     });
 

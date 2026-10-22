@@ -6,6 +6,7 @@ export interface EditablePersonalInfo {
   contactEmails?: ContactEmail[];
   addresses?: Address[];
   links?: Link[];
+  countries?: Country[];
 }
 
 export interface EditablePersonalInfoDB {
@@ -16,6 +17,7 @@ export interface EditablePersonalInfoDB {
   contact_emails?: ContactEmailDB[];
   addresses?: AddressDB[];
   links?: LinkDB[];
+  countries?: CountryDB[];
 }
 
 export interface Surname {
@@ -77,5 +79,17 @@ export interface LinkDB {
   id: string;
   text: string;
   url: string;
+  visible: boolean;
+}
+
+export interface Country {
+  id: string;
+  countryName: string;
+  visibility: boolean;
+}
+
+export interface CountryDB {
+  id: string;
+  name: string;
   visible: boolean;
 }

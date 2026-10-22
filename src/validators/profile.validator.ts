@@ -77,6 +77,13 @@ function validateLink(link: unknown) {
   return { id: formatedId, text: formatedText, url: newURL.toString(), visibility: GeneralValidations.validateVisibility(visibility) }
 }
 
+function validateCountry(country: unknown) {
+  const { id, countryName, visibility } = country as ProfileTypes.Country;
+  const formatedId = GeneralValidations.validateId(id);
+  const formatedCountryName = GeneralValidations.validateProperNoun(countryName, "Pais");
+  return { id: formatedId, countryName: formatedCountryName, visibility: GeneralValidations.validateVisibility(visibility) }
+}
+
 export function validateEditablePersonalInfo(payload: unknown) {
   const p = payload as ProfileTypes.EditablePersonalInfo;
   const proccessedInfo: ProfileTypes.EditablePersonalInfo = {};
@@ -87,5 +94,6 @@ export function validateEditablePersonalInfo(payload: unknown) {
   if (p.contactEmails) proccessedInfo.contactEmails = GeneralValidations.validateList(p.contactEmails, validateContactEmail, "Correos de Contacto")
   if (p.addresses) proccessedInfo.addresses = GeneralValidations.validateList(p.addresses, validateAdress, "Direcciones");
   if (p.links) proccessedInfo.links = GeneralValidations.validateList(p.links, validateLink, "Enlaces");
+  if (p.countries) proccessedInfo.countries = GeneralValidations.validateList(p.countries, validateCountry, "Paises")
   return proccessedInfo;
 }

@@ -46,6 +46,15 @@ function linkToDB(link: ProfileTypes.Link) {
   return result;
 }
 
+function countryToDB(country: ProfileTypes.Country) {
+  const result = {
+    id: country.id,
+    name: country.countryName,
+    visible: country.visibility
+  } as ProfileTypes.CountryDB;
+  return result;
+}
+
 export function editablePersonalInfoToDB(payload: ProfileTypes.EditablePersonalInfo) {
   const result: ProfileTypes.EditablePersonalInfoDB = {};
   if (payload.name) result.name = payload.name;
@@ -55,5 +64,6 @@ export function editablePersonalInfoToDB(payload: ProfileTypes.EditablePersonalI
   if (payload.contactEmails) result.contact_emails = payload.contactEmails.map(email => contactEmailToDB(email));
   if (payload.addresses) result.addresses = payload.addresses.map(address => addressToDB(address));
   if (payload.links) result.links = payload.links.map(link => linkToDB(link));
+  if (payload.countries) result.countries = payload.countries.map(country => countryToDB(country)); 
   return result;
 }

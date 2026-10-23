@@ -30,3 +30,5 @@ function validateRequestBody(validator: (payload: unknown) => unknown) {
 }
 
 export const registerUser = validateRequestBody(AuthValidations.validateRegisterUser);
+
+export const createAdditionalInfo = validateRequestBody(ProfileValidations.validateAdditionalInfo);

@@ -102,3 +102,69 @@ export function userFromDB(user: AuthTypes.UserDB) {
   };
   return result;
 }
+
+function newPhoneToDB(phone: ProfileTypes.NewPhone) {
+  const result: ProfileTypes.NewPhoneDB = {
+    number: phone.phoneNumber,
+    code: phone.countryCode,
+    visible: phone.visibility
+  };
+  return result;
+}
+
+function newContactEmailToDB(email: ProfileTypes.NewContactEmail) {
+  const result: ProfileTypes.NewContactEmailDB = {
+    address: email.email,
+    visible: email.visibility
+  };
+  return result;
+}
+
+function newAddressToDB(address: ProfileTypes.NewAddress) {
+  const result: ProfileTypes.NewAddressDB = {
+    address: address.address,
+    visible: address.visibility
+  };
+  return result;
+}
+
+function newLinkToDB(link: ProfileTypes.NewLink) {
+  const result: ProfileTypes.NewLinkDB = {
+    text: link.text,
+    url: link.url,
+    visible: link.visibility
+  };
+  return result;
+}
+
+function newCountryToDB(country: ProfileTypes.NewCountry) {
+  const result: ProfileTypes.NewCountryDB = {
+    name: country.countryName,
+    visible: country.visibility
+  };
+  return result;
+}
+
+function newWorkExperienceToDB(workExperience: ProfileTypes.NewWorkExperience) {
+  const result: ProfileTypes.NewWorkExperienceDB = {
+    title: workExperience.title,
+    description: workExperience.description,
+    company_name: workExperience.companyName,
+    start_date: workExperience.startDate,
+    end_date: workExperience.endDate,
+    visible: workExperience.visibility
+  };
+  return result;
+}
+
+export function additionalInfoToDB(payload: ProfileTypes.AdditionalInfo) {
+  const result: ProfileTypes.AdditionalInfoDB = {};
+  if (payload.surname) result.surname = surnameToDB(payload.surname);
+  if (payload.phones) result.phones = payload.phones.map(phone => newPhoneToDB(phone));
+  if (payload.contactEmails) result.contact_emails = payload.contactEmails.map(email => newContactEmailToDB(email));
+  if (payload.addresses) result.addresses = payload.addresses.map(address => newAddressToDB(address));
+  if (payload.links) result.links = payload.links.map(link => newLinkToDB(link));
+  if (payload.countries) result.countries = payload.countries.map(country => newCountryToDB(country));
+  if (payload.workExperiences) result.work_experiences = payload.workExperiences.map(workExperience => newWorkExperienceToDB(workExperience));
+  return result;
+}

@@ -9,6 +9,12 @@ router.post(
   "/register",
   RateLimit.registerRateLimit,
   Validations.registerUser,
-  AuthController.registerUser);
+  AuthController.registerUser
+);
 
+router.get(
+  "/:provider",
+  RateLimit.authRateLimit,
+  AuthController.startAuthorization
+);
 export default router;

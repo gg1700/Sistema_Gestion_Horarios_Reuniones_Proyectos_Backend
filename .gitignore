@@ -40,3 +40,6 @@ Thumbs.db
 # Migraciones locales
 db/my_migrations/
 db/my_scripts/
+
+# No toquen ehhh
+bruno/

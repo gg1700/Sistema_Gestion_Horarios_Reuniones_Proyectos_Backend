@@ -8,6 +8,13 @@ import * as ProfileController from "../controllers/profile.controller";
 
 const router = Router();
 
+router.get(
+  "/",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  ProfileController.getOwnProfile
+);
+
 router.post(
   "/",
   Session.verifySession,

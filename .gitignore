@@ -36,3 +36,7 @@ Thumbs.db
 
 # Typescript
 *.tsbuildinfo
+
+# Migraciones locales
+db/my_migrations/
+db/my_scripts/

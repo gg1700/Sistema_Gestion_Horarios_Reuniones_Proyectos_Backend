@@ -42,6 +42,9 @@ export async function modifyPersonalInfo(
     const formatedInfo = Mapper.editablePersonalInfoToDB(editablePersonalInfo);
 
     await processTransaction<unknown>(async function (client: PoolClient) {
+      if (!(await ProfileRepo.lockActiveUser(userId, client))) {
+        throw new AuthenticationError("Sesion invalida o usuario no disponible");
+      }
       const userInfo: Record<string, any> = {};
       if (formatedInfo.name) userInfo.name = formatedInfo.name;
       if (formatedInfo.first_surname) userInfo.first_surname = formatedInfo.first_surname;
@@ -82,7 +85,7 @@ export async function modifyPersonalInfo(
 
     return { result: true, statusCode: 200, message: "Infomacion personal modificada correctamente" };
   } catch (err) {
-    return { result: false, statusCode: 500, message: (err as Error).message };
+    return { result: false, statusCode: err instanceof AuthenticationError ? 401 : 500, message: (err as Error).message };
   }
 }
 
@@ -155,6 +158,9 @@ export async function createAdditionalInfo(
     if (formatedInfo.countries) await verifyCountryNames(formatedInfo.countries);
 
     await processTransaction<unknown>(async function (client: PoolClient) {
+      if (!(await ProfileRepo.lockActiveUser(userId, client))) {
+        throw new AuthenticationError("Sesion invalida o usuario no disponible");
+      }
       if (formatedInfo.surname) await ProfileRepo.updateSurname(userId, formatedInfo.surname, client);
       if (formatedInfo.phones) {
         await ProfileRepo.insertUnregisteredNumber(formatedInfo.phones, client);

@@ -22,3 +22,25 @@ export async function viewAccountVinculation(req: Request, res: Response) {
     });
   }
 }
+
+export async function revokeAccessAccount(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload || req.query;
+    const provider = req.params.provider;
+    
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const validatedProvider = GeneralValidations.validateExternalProvider(provider);
+
+    const { result, statusCode, message } = await AuthService.revokeAccessAccount(validatedUserId, validatedProvider);
+    if (!result) return res.status(statusCode).json({ success: result, message: message });
+    return res.status(200).json({
+      success: true,
+      message: `Acceso a cuenta de ${validatedProvider} revocado correctamente`
+    });
+  } catch (err) {
+    return res.status(500).json({
+      success: false,
+      message: `Error interno del servidor: ${(err as Error).message}`
+    });
+  }
+}

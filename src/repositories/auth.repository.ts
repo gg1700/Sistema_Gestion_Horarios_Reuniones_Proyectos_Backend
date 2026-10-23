@@ -8,3 +8,12 @@ export async function getExternalAccounts(userId: string) {
   const accounts = await processReturnQuery(query, values);
   return accounts;
 }
+
+export async function deleteExternalAccount(id: string, userId: string) {
+  const query = `DELETE FROM "external_account"
+    WHERE id = $1 AND user_id = $2
+    RETURNING provider`;
+  const values = [id, userId];
+  const deletedAccount = await processReturnQuery(query, values);
+  return deletedAccount;
+}

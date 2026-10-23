@@ -8,4 +8,9 @@ router.get(
   AuthController.viewAccountVinculation
 );
 
+router.delete(
+  "/accounts/:provider",
+  AuthController.revokeAccessAccount
+);
+
 export default router;

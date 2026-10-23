@@ -40,3 +40,11 @@ Para GitHub deben realizar los siguientes pasos
 4. Haz clic en **Register application**.
 5. Copia el **Client ID** y pégalo en tu archivo .env como GITHUB_CLIENT_ID.
 6. Haz clic en **Generate a new client secret**, cópialo inmediatamente y pégalo como GITHUB_CLIENT_SECRET.
+
+### 4. Clave de Encriptacion de Tokens
+Para generar una clave para el cifrado y descifrado de tokens sigue los siguientes pasos:
+1. Abre la teminal
+2. Escribe el comando: `openssl rand -base64 32` o `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+3. Pulsa ENTER
+4. Copia la cadena generada
+5. Pega la cadena generada en la variable de entorno ENCRYPTION_KEY en el archivo .env.

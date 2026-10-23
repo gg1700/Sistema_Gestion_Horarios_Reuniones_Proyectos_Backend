@@ -22,4 +22,5 @@ export const env = {
   CLOUDINARY_CLOUD_NAME: verifyEnvVariables("CLOUDINARY_CLOUD_NAME", undefined),
   CLOUDINARY_API_KEY: verifyEnvVariables("CLOUDINARY_API_KEY", undefined),
   CLOUDINARY_API_SECRET: verifyEnvVariables("CLOUDINARY_API_SECRET", undefined),
+  ENCRYPTION_KEY: verifyEnvVariables("ENCRYPTION_KEY", undefined),
 };

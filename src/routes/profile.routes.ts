@@ -5,6 +5,7 @@ import * as Validations from "../middlewares/validations.middleware";
 import * as Session from "../middlewares/session.middleware";
 import * as RateLimit from "../middlewares/rateLimit.middleware";
 import * as ProfileController from "../controllers/profile.controller";
+import * as VisibilityController from "../controllers/visibility.controller";
 import { deleteAccount } from "../controllers/account-deletion.controller";
 
 const router = Router();
@@ -22,6 +23,18 @@ router.use(Session.verifySession, Session.requireActiveProfileUser);
 router.get(
   "/",
   ProfileController.getOwnProfile
+);
+
+router.get(
+  "/visibility",
+  RateLimit.visibilityRateLimit,
+  VisibilityController.getVisibility
+);
+
+router.patch(
+  "/visibility",
+  RateLimit.visibilityRateLimit,
+  VisibilityController.updateVisibility
 );
 
 router.post(

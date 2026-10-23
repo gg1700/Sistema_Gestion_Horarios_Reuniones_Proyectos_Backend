@@ -23,7 +23,7 @@ function createRateLimit(maximumRequests: number) {
 }
 
 export const registerRateLimit = createRateLimit(10);
-
+export const visibilityRateLimit = createRateLimit(30);
 export const profileRateLimit = createRateLimit(20);
 
 export const deleteAccountRateLimit = createRateLimit(5);

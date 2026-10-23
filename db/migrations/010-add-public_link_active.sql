@@ -39,7 +39,3 @@ ALTER TABLE public."user"
     handle_name IS NOT NULL
     AND handle_name ~ '^[a-z0-9-]{3,50}$'
   );
-
--- Enforce case-insensitive uniqueness.
-CREATE UNIQUE INDEX user_handle_name_lower_idx
-  ON public."user" (LOWER(handle_name));

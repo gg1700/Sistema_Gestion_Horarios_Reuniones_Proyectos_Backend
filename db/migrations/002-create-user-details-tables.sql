@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS public.user_surname (
-  user_id uuid PRIMARY KEY NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  user_id uuid PRIMARY KEY NOT NULL REFERENCES public."user" (id) ON DELETE CASCADE,
   surname varchar(100),
   visible boolean NOT NULL DEFAULT true
 );
@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS public.country (
 
 CREATE TABLE IF NOT EXISTS public.user_country (
   id uuid PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public."user" (id) ON DELETE CASCADE,
   country_id uuid NOT NULL REFERENCES public.country (id),
   visible boolean NOT NULL DEFAULT true
 );
@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS public.phone (
 
 CREATE TABLE IF NOT EXISTS public.user_phone (
   id uuid PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public."user" (id) ON DELETE CASCADE,
   country_id uuid NOT NULL REFERENCES public.country (id),
   phone_id uuid NOT NULL REFERENCES public.phone (id),
   visible boolean NOT NULL DEFAULT true
@@ -40,14 +40,14 @@ CREATE TABLE IF NOT EXISTS public.email (
 
 CREATE TABLE IF NOT EXISTS public.user_email (
   id uuid PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public."user" (id) ON DELETE CASCADE,
   email_id uuid NOT NULL REFERENCES public.email (id),
   visible boolean NOT NULL DEFAULT true
 );
 
 CREATE TABLE IF NOT EXISTS public.address (
   id uuid PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public."user" (id) ON DELETE CASCADE,
   address varchar(300) NOT NULL,
   visible boolean NOT NULL DEFAULT true
 );

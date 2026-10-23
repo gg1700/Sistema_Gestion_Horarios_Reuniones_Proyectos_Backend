@@ -13,7 +13,13 @@ export const oauthConfig: Record<OAuthProvider, ProviderConfiguration> = {
     authorizationEndpoint: "https://accounts.google.com/o/oauth2/v2/auth",
     clientId: env.GOOGLE_CLIENT_ID,
     redirectUri: env.GOOGLE_REDIRECT_URI,
-    scopes: ["openid", "profile", "email"],
+      scopes: [
+        "openid",
+        "profile",
+        "email",
+        "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
+        "https://www.googleapis.com/auth/calendar.events",
+      ],
   },
   github: {
     authorizationEndpoint: "https://github.com/login/oauth/authorize",

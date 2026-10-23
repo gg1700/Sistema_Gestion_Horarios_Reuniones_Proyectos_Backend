@@ -7,3 +7,7 @@ export const regexEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const regexURL = /[\s\\x00-\\x1F\\x7F]/;
 
 export const regexURLScheme = /^[a-z][a-z0-9+.-]*:/i;
+
+export const regexHandleName = /^[a-z0-9-]{3,50}$/;
+
+export const regexPassword = /^(?=.*[A-Za-z])(?=.*\d)\S{8,72}$/;

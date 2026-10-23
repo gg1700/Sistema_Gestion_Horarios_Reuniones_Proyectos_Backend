@@ -4,7 +4,7 @@ import * as AuthTypes from "../types/auth.types";
 export async function existsEmail(email: string) {
   const query = `
     SELECT id FROM "user"
-    WHERE email = $1`;
+    WHERE email = $1 AND deleted_at IS NULL`;
   const values = [email];
   const userFound = await processReturnQuery(query, values);
   return (userFound.length !== 0);
@@ -13,7 +13,7 @@ export async function existsEmail(email: string) {
 export async function existsHandleName(handleName: string) {
   const query = `
     SELECT id FROM "user"
-    WHERE LOWER(handle_name) = LOWER($1)`;
+    WHERE LOWER(handle_name) = LOWER($1) AND deleted_at IS NULL`;
   const values = [handleName];
   const userFound = await processReturnQuery(query, values);
   return (userFound.length !== 0);

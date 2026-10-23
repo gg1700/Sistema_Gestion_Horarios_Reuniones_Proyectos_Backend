@@ -44,7 +44,7 @@ export async function updateSurname(
   await client.query(query, values);
 }
 
-export async function insertUnregisteredNumber(phones: ProfileTypes.PhoneDB[], client: PoolClient) {
+export async function insertUnregisteredNumber(phones: Pick<ProfileTypes.PhoneDB, "number">[], client: PoolClient) {
   const query = `INSERT INTO "phone" (number)
     SELECT UNNEST($1::text[])
     ON CONFLICT (number) DO NOTHING`;
@@ -53,7 +53,7 @@ export async function insertUnregisteredNumber(phones: ProfileTypes.PhoneDB[], c
   return phoneNumbers.rows;
 }
 
-export async function findCountriesByCodes(phones: ProfileTypes.PhoneDB[]) {
+export async function findCountriesByCodes(phones: Pick<ProfileTypes.PhoneDB, "code">[]) {
   const query = `SELECT c.name FROM "country" c
     JOIN UNNEST($1::text[]) AS t(code) ON c.code = t.code`;
   const values = [phones.map((p) => p.code)];
@@ -84,10 +84,7 @@ export async function updatePhoneInfo(
   await client.query(query, values);
 }
 
-export async function insertUnregisteredEmail(
-  emails: ProfileTypes.ContactEmailDB[],
-  client: PoolClient
-) {
+export async function insertUnregisteredEmail(emails: Pick<ProfileTypes.ContactEmailDB, "address">[], client: PoolClient) {
   const query = `INSERT INTO "email" (address)
     SELECT UNNEST($1::text[])
     ON CONFLICT (address) DO NOTHING`;
@@ -156,7 +153,7 @@ export async function updateLinkInfo(
   await client.query(query, values);
 }
 
-export async function findCountriesByName(countries: ProfileTypes.CountryDB[]) {
+export async function findCountriesByName(countries: Pick<ProfileTypes.CountryDB, "name">[]) {
   const query = `SELECT * FROM "country" c
     JOIN UNNEST($1::text[]) AS t(name) ON c.name = t.name`;
   const values = [countries.map((c) => c.name)];
@@ -247,6 +244,7 @@ export async function findPublicProfileByHandle(handle: string): Promise<PublicP
     FROM public."user"
     WHERE LOWER(handle_name) = LOWER($1)
       AND public_link_active = TRUE
+      AND status = 'active'
       AND deleted_at IS NULL
     LIMIT 1
   `;
@@ -254,4 +252,79 @@ export async function findPublicProfileByHandle(handle: string): Promise<PublicP
   const rows = (await processReturnQuery(query, [handle])) as PublicProfileRow[];
 
   return rows[0] ?? null;
+}
+
+export async function hasAdditionalInfo(userId: string) {
+  const query = `SELECT
+    EXISTS (SELECT 1 FROM "user_surname" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "user_phone" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "user_email" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "address" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "link" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "user_country" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "workexperience" WHERE user_id = $1) AS registered`;
+  const values = [userId];
+  const result = await processReturnQuery(query, values);
+  return result[0].registered as boolean;
+}
+
+export async function insertUserPhones(userId: string, phones: ProfileTypes.NewPhoneDB[], client: PoolClient) {
+  const query = `INSERT INTO "user_phone" (user_id, phone_id, country_id, visible)
+    SELECT $1::uuid, p.id, c.id, t.visible
+    FROM UNNEST($2::text[], $3::text[], $4::bool[]) AS t(number, code, visible)
+    JOIN "phone" p ON p.number = t.number
+    JOIN "country" c ON c.code = t.code`;
+  const values = [userId, phones.map(phone => phone.number), phones.map(phone => phone.code), phones.map(phone => phone.visible)];
+  await client.query(query, values);
+}
+
+export async function insertUserEmails(userId: string, emails: ProfileTypes.NewContactEmailDB[], client: PoolClient) {
+  const query = `INSERT INTO "user_email" (user_id, email_id, visible)
+    SELECT $1::uuid, e.id, t.visible
+    FROM UNNEST($2::text[], $3::bool[]) AS t(address, visible)
+    JOIN "email" e ON e.address = t.address`;
+  const values = [userId, emails.map(email => email.address), emails.map(email => email.visible)];
+  await client.query(query, values);
+}
+
+export async function insertAddresses(userId: string, addresses: ProfileTypes.NewAddressDB[], client: PoolClient) {
+  const query = `INSERT INTO "address" (user_id, address, visible)
+    SELECT $1::uuid, t.address, t.visible
+    FROM UNNEST($2::text[], $3::bool[]) AS t(address, visible)`;
+  const values = [userId, addresses.map(address => address.address), addresses.map(address => address.visible)];
+  await client.query(query, values);
+}
+
+export async function insertLinks(userId: string, links: ProfileTypes.NewLinkDB[], client: PoolClient) {
+  const query = `INSERT INTO "link" (user_id, text, url, visible)
+    SELECT $1::uuid, t.text, t.url, t.visible
+    FROM UNNEST($2::text[], $3::text[], $4::bool[]) AS t(text, url, visible)`;
+  const values = [userId, links.map(link => link.text), links.map(link => link.url), links.map(link => link.visible)];
+  await client.query(query, values);
+}
+
+export async function insertUserCountries(userId: string, countries: ProfileTypes.NewCountryDB[], client: PoolClient) {
+  const query = `INSERT INTO "user_country" (user_id, country_id, visible)
+    SELECT $1::uuid, c.id, t.visible
+    FROM UNNEST($2::text[], $3::bool[]) AS t(name, visible)
+    JOIN "country" c ON c.name = t.name`;
+  const values = [userId, countries.map(country => country.name), countries.map(country => country.visible)];
+  await client.query(query, values);
+}
+
+export async function insertWorkExperiences(userId: string, workExperiences: ProfileTypes.NewWorkExperienceDB[], client: PoolClient) {
+  const query = `INSERT INTO "workexperience" (user_id, title, description, company_name, start_date, end_date, visible)
+    SELECT $1::uuid, t.title, t.description, t.company_name, t.start_date, t.end_date, t.visible
+    FROM UNNEST($2::text[], $3::text[], $4::text[], $5::date[], $6::date[], $7::bool[])
+    AS t(title, description, company_name, start_date, end_date, visible)`;
+  const values = [
+    userId,
+    workExperiences.map(workExperience => workExperience.title),
+    workExperiences.map(workExperience => workExperience.description),
+    workExperiences.map(workExperience => workExperience.company_name),
+    workExperiences.map(workExperience => workExperience.start_date),
+    workExperiences.map(workExperience => workExperience.end_date),
+    workExperiences.map(workExperience => workExperience.visible)
+  ];
+  await client.query(query, values);
 }

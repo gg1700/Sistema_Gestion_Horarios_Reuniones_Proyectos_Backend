@@ -100,3 +100,28 @@ export async function getPublicProfile(req: Request, res: Response) {
     });
   }
 }
+
+export async function createAdditionalInfo(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const { result, statusCode, message } =
+      await ProfileService.createAdditionalInfo(userId, req.body, req.file);
+
+    if (!result) {
+      return res.status(statusCode).json({
+        success: result,
+        message: message,
+      });
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: message,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: `Error interno del servidor ${(error as Error).message}`,
+    });
+  }
+}

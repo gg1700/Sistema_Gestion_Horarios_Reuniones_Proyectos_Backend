@@ -93,3 +93,53 @@ export interface CountryDB {
   name: string;
   visible: boolean;
 }
+
+export type NewPhone = Omit<Phone, "id">;
+export type NewContactEmail = Omit<ContactEmail, "id">;
+export type NewAddress = Omit<Address, "id">;
+export type NewLink = Omit<Link, "id">;
+export type NewCountry = Omit<Country, "id">;
+
+export type NewPhoneDB = Omit<PhoneDB, "id">;
+export type NewContactEmailDB = Omit<ContactEmailDB, "id">;
+export type NewAddressDB = Omit<AddressDB, "id">;
+export type NewLinkDB = Omit<LinkDB, "id">;
+export type NewCountryDB = Omit<CountryDB, "id">;
+
+export interface NewWorkExperience {
+  title: string;
+  description: string | null;
+  companyName: string | null;
+  startDate: string;
+  endDate: string | null;
+  visibility: boolean;
+}
+
+export interface NewWorkExperienceDB {
+  title: string;
+  description: string | null;
+  company_name: string | null;
+  start_date: string;
+  end_date: string | null;
+  visible: boolean;
+}
+
+export interface AdditionalInfo {
+  surname?: Surname;
+  phones?: NewPhone[];
+  contactEmails?: NewContactEmail[];
+  addresses?: NewAddress[];
+  links?: NewLink[];
+  countries?: NewCountry[];
+  workExperiences?: NewWorkExperience[];
+}
+
+export interface AdditionalInfoDB {
+  surname?: SurnameDB;
+  phones?: NewPhoneDB[];
+  contact_emails?: NewContactEmailDB[];
+  addresses?: NewAddressDB[];
+  links?: NewLinkDB[];
+  countries?: NewCountryDB[];
+  work_experiences?: NewWorkExperienceDB[];
+}

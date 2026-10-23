@@ -3,7 +3,7 @@ import * as ProfileRepo from "../repositories/profile.repository";
 import * as Mapper from "../helpers/mapper.helper";
 import { processTransaction } from "../utils/query";
 import { PoolClient } from "pg";
-import { ValidationError } from "../helpers/errors.helper";
+import { ConflictError, NotFoundError, ServerError, ValidationError } from "../helpers/errors.helper";
 import * as ImageService from "./image.service";
 import * as WorkExpTypes from "../types/work_experience.types";
 import { today, tody60YearsAgo } from "../utils/constants/date.constants";
@@ -141,4 +141,67 @@ export async function getPublicProfile(handle: string) {
     firstLastName: user.first_surname,
     profilePicture: user.profile_picture,
   };
+}
+
+async function verifyPhoneCountryCodes(phones: Pick<ProfileTypes.PhoneDB, "code">[]) {
+  const countries = await ProfileRepo.findCountriesByCodes(phones);
+  if (countries.length !== phones.length) throw new ValidationError("Error de codigos de pais");
+}
+
+async function verifyCountryNames(countries: Pick<ProfileTypes.CountryDB, "name">[]) {
+  const foundCountries = await ProfileRepo.findCountriesByName(countries);
+  if (foundCountries.length !== countries.length) throw new ValidationError("Pais o paises no encontrados");
+}
+
+function hasAnyAdditionalInfo(additionalInfo: ProfileTypes.AdditionalInfoDB, profilePicture: Express.Multer.File | undefined) {
+  return Object.keys(additionalInfo).length > 0 || profilePicture !== undefined;
+}
+
+export async function createAdditionalInfo(
+  userId: string,
+  additionalInfo: ProfileTypes.AdditionalInfo,
+  profilePicture: Express.Multer.File | undefined) {
+  try {
+    const formatedInfo = Mapper.additionalInfoToDB(additionalInfo);
+    if (!hasAnyAdditionalInfo(formatedInfo, profilePicture)) {
+      throw new ValidationError("No se envio informacion adicional para registrar");
+    }
+
+    const userFound = await ProfileRepo.existsUser(userId);
+    if (!userFound) throw new NotFoundError("El usuario no existe");
+
+    const alreadyRegistered = await ProfileRepo.hasAdditionalInfo(userId);
+    if (alreadyRegistered) throw new ConflictError("El usuario ya tiene informacion adicional registrada");
+
+    if (formatedInfo.phones) await verifyPhoneCountryCodes(formatedInfo.phones);
+    if (formatedInfo.countries) await verifyCountryNames(formatedInfo.countries);
+
+    await processTransaction<unknown>(async function (client: PoolClient) {
+      if (formatedInfo.surname) await ProfileRepo.updateSurname(userId, formatedInfo.surname, client);
+      if (formatedInfo.phones) {
+        await ProfileRepo.insertUnregisteredNumber(formatedInfo.phones, client);
+        await ProfileRepo.insertUserPhones(userId, formatedInfo.phones, client);
+      }
+      if (formatedInfo.contact_emails) {
+        await ProfileRepo.insertUnregisteredEmail(formatedInfo.contact_emails, client);
+        await ProfileRepo.insertUserEmails(userId, formatedInfo.contact_emails, client);
+      }
+      if (formatedInfo.addresses) await ProfileRepo.insertAddresses(userId, formatedInfo.addresses, client);
+      if (formatedInfo.links) await ProfileRepo.insertLinks(userId, formatedInfo.links, client);
+      if (formatedInfo.countries) await ProfileRepo.insertUserCountries(userId, formatedInfo.countries, client);
+      if (formatedInfo.work_experiences) await ProfileRepo.insertWorkExperiences(userId, formatedInfo.work_experiences, client);
+
+      if (profilePicture) {
+        const profilePictureURL = await ImageService.updateProfilePicture(userId, profilePicture.buffer, profilePicture.mimetype);
+        await ProfileRepo.updateProfilePicture(userId, profilePictureURL, client);
+      }
+
+      await ProfileRepo.confirmProfileUpdate(userId, client);
+    });
+
+    return { result: true, statusCode: 201, message: "Informacion adicional registrada correctamente" };
+  } catch (error) {
+    const statusCode = error instanceof ServerError ? error.statusCode : 500;
+    return { result: false, statusCode: statusCode, message: (error as Error).message };
+  }
 }

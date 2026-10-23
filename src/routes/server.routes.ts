@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import publicLinkRoutes from "./publicLink.routes";
 import ProfileRoutes from "./profile.routes";
 import * as ProfileController from "../controllers/profile.controller";
 import { publicProfileRateLimit } from "../middlewares/publicProfileRateLimit.middleware";
@@ -13,6 +14,7 @@ router.get("/health", (req: Request, res: Response) => {
   });
 });
 
+router.use("/api/v1/profile/public-link", publicLinkRoutes);
 router.use("/api/v1/profile", ProfileRoutes);
 router.use("/api/v1/auth", AuthRoutes);
 

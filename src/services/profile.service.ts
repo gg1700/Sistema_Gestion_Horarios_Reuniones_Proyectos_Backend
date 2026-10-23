@@ -1,12 +1,35 @@
 import * as ProfileTypes from "../types/profile.types";
 import * as ProfileRepo from "../repositories/profile.repository";
+import * as ProfileReadRepo from "../repositories/profile-read.repository";
+import type { Profile } from "../types/profile-response.types";
 import * as Mapper from "../helpers/mapper.helper";
 import { processTransaction } from "../utils/query";
 import { PoolClient } from "pg";
-import { ConflictError, NotFoundError, ServerError, ValidationError } from "../helpers/errors.helper";
+import { AuthenticationError, ConflictError, NotFoundError, ServerError, ValidationError } from "../helpers/errors.helper";
 import * as ImageService from "./image.service";
 import * as WorkExpTypes from "../types/work_experience.types";
 import { today, tody60YearsAgo } from "../utils/constants/date.constants";
+
+export async function getOwnProfile(userId: string): Promise<Profile> {
+  const profile = await ProfileReadRepo.findOwnProfile(userId);
+  if (!profile) throw new AuthenticationError("Sesion invalida o usuario no disponible");
+
+  return {
+    id: profile.id,
+    handleName: profile.handle_name,
+    name: profile.name,
+    firstSurname: profile.first_surname,
+    email: profile.email,
+    profilePicture: profile.profile_picture,
+    surname: profile.surname,
+    phones: profile.phones,
+    contactEmails: profile.contact_emails,
+    addresses: profile.addresses,
+    countries: profile.countries,
+    workExperiences: profile.work_experiences,
+    links: profile.links,
+  };
+}
 
 export async function modifyPersonalInfo(
   userId: string,

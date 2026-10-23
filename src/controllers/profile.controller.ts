@@ -2,6 +2,24 @@ import { Request, Response } from "express";
 import * as GeneralValidations from "../validators/general.validator";
 import * as ProfileService from "../services/profile.service";
 import * as TokenTypes from "../types/token.types";
+import { AuthenticationError } from "../helpers/errors.helper";
+import type { ProfileResponse } from "../types/profile-response.types";
+
+export async function getOwnProfile(req: Request, res: Response<ProfileResponse>) {
+  res.set("Cache-Control", "private, no-store");
+  if (!req.user) {
+    return res.status(401).json({ success: false, message: "Sesion no proporcionada" });
+  }
+  try {
+    const profile = await ProfileService.getOwnProfile(req.user.userId);
+    return res.status(200).json({ success: true, data: profile });
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return res.status(401).json({ success: false, message: error.message });
+    }
+    return res.status(500).json({ success: false, message: "No se pudo consultar el perfil" });
+  }
+}
 
 export async function modifyPersonalInfo(req: Request, res: Response) {
   try {

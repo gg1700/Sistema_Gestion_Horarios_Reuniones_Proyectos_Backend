@@ -15,7 +15,7 @@ const handleB = `test-visibility-b-${userB.slice(0, 8)}`;
 
 let authorization = "";
 
-// Crear un usuario directamente en la base de pruebas
+// Crear usuarios directamente en la base de pruebas
 async function createUser(id: string, handleName: string) {
   await pool.query(
     `INSERT INTO public."user"
@@ -50,8 +50,22 @@ async function createUser(id: string, handleName: string) {
   );
 }
 
-// Eliminar los usuarios creados durante las pruebas
+// Eliminar los usuarios temporales
 async function cleanup() {
+  // Eliminar primero los registros relacionados con los usuarios
+  await pool.query(
+    `DELETE FROM public.field_visibility
+     WHERE user_id = ANY($1::uuid[])`,
+    [[userA, userB]]
+  );
+
+  await pool.query(
+    `DELETE FROM public.user_surname
+     WHERE user_id = ANY($1::uuid[])`,
+    [[userA, userB]]
+  );
+
+  // Eliminar los usuarios
   await pool.query(
     `DELETE FROM public."user"
      WHERE id = ANY($1::uuid[])`,
@@ -63,7 +77,7 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
 
   beforeAll(async () => {
 
-    // Verificar que estamos usando la base de pruebas
+    // Verificar que utilizamos exclusivamente la base de pruebas
     const database = await pool.query(
       "SELECT current_database() AS name"
     );
@@ -73,34 +87,45 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
       database.rows[0].name !== "orbita_t15_test"
     ) {
       throw new Error(
-        "Estas pruebas solo se pueden ejecutar con NODE_ENV=test y orbita_t15_test"
+        "Estas pruebas solo pueden ejecutarse con NODE_ENV=test y orbita_t15_test"
       );
     }
 
-    // Crear dos usuarios
+    // Crear los dos usuarios temporales
     await createUser(userA, handleA);
     await createUser(userB, handleB);
 
-    // Crear un apellido perteneciente al usuario B
+    // Crear apellido para el usuario A
     await pool.query(
       `INSERT INTO public.user_surname
        (user_id, surname, visible)
-       VALUES ($1, 'ApellidoAjeno', false)`,
+       VALUES ($1, 'ApellidoUsuarioA', false)`,
+      [userA]
+    );
+
+    // Crear apellido para el usuario B
+    await pool.query(
+      `INSERT INTO public.user_surname
+       (user_id, surname, visible)
+       VALUES ($1, 'ApellidoUsuarioB', false)`,
       [userB]
     );
 
-    // Generar el JWT del usuario A
+    // Generar JWT para el usuario A
     authorization = `Bearer ${createSession(userA, handleA).token}`;
   });
 
   afterAll(async () => {
 
-    // Verificar nuevamente la base antes de eliminar datos
+    // Verificar la base antes de eliminar los datos
     const database = await pool.query(
       "SELECT current_database() AS name"
     );
 
-    if (database.rows[0].name === "orbita_t15_test") {
+    if (
+      process.env.NODE_ENV === "test" &&
+      database.rows[0].name === "orbita_t15_test"
+    ) {
       await cleanup();
     }
 
@@ -116,7 +141,7 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
     expect(response.status).toBe(401);
   });
 
-  // PRUEBA 2: GET con JWT y valores predeterminados
+  // PRUEBA 2: GET con autenticación y valores predeterminados
   it("GET con sesion muestra GitHub oculto por defecto", async () => {
 
     const response = await request(app)
@@ -214,7 +239,7 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
     expect(response.status).toBe(400);
   });
 
-  // PRUEBA 6: Registro perteneciente a otro usuario
+  // PRUEBA 6: Intentar modificar el apellido de otro usuario
   it("PATCH rechaza cambiar el apellido de otro usuario", async () => {
 
     const response = await request(app)
@@ -243,7 +268,7 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
     expect(result.rows[0].visible).toBe(false);
   });
 
-  // PRUEBA 7: Transacción atómica
+  // PRUEBA 7: Verificar rollback
   it("PATCH hace rollback si falla el segundo cambio", async () => {
 
     const response = await request(app)
@@ -293,6 +318,67 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
       });
 
     expect(response.status).toBe(401);
+  });
+
+  // PRUEBA 9: Actualizar la visibilidad de un campo real del perfil
+  it("PATCH actualiza la visibilidad del apellido del usuario", async () => {
+
+    // Verificar que inicialmente el apellido está oculto
+    const initialResult = await pool.query(
+      `SELECT visible
+       FROM public.user_surname
+       WHERE user_id = $1`,
+      [userA]
+    );
+
+    expect(initialResult.rows[0].visible).toBe(false);
+
+    // Actualizar la visibilidad mediante PATCH
+    const response = await request(app)
+      .patch(route)
+      .set("Authorization", authorization)
+      .send({
+        changes: [
+          {
+            type: "surname",
+            id: userA,
+            visible: true
+          }
+        ]
+      });
+
+    // Verificar respuesta del endpoint
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+
+    // Consultar directamente PostgreSQL
+    const result = await pool.query(
+      `SELECT visible
+       FROM public.user_surname
+       WHERE user_id = $1`,
+      [userA]
+    );
+
+    // Confirmar que se guardó el cambio
+    expect(result.rows[0].visible).toBe(true);
+
+    // Consultar nuevamente mediante GET
+    const getResponse = await request(app)
+      .get(route)
+      .set("Authorization", authorization);
+
+    expect(getResponse.status).toBe(200);
+
+    // Confirmar que GET devuelve el apellido visible
+    expect(getResponse.body.data).toEqual(
+      expect.arrayContaining([
+        {
+          type: "surname",
+          id: userA,
+          visible: true
+        }
+      ])
+    );
   });
 
 });

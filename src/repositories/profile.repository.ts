@@ -5,7 +5,7 @@ import * as WorkExpTypes from "../types/work_experience.types";
 
 export async function existsUser(userId: string) {
   const query = `
-    SELECT * FROM "users"
+    SELECT * FROM "user"
     WHERE id = $1`;
   const values = [userId];
   const userFound = await processReturnQuery(query, values);
@@ -19,7 +19,7 @@ export async function updatePersonalInfo(userId: string, userInfo: Record<string
   Object.keys(userInfo).forEach((key, i) => {
     setStatement.push(`${key} = $${i + 1}`);
   });
-  const query = `UPDATE "users"
+  const query = `UPDATE "user"
     SET ${setStatement.join(", ")}
     WHERE id = $${values.length}`;
   await client.query(query, values);
@@ -127,7 +127,7 @@ export async function updateCountryInfo(userId: string, countries: ProfileTypes.
 }
 
 export async function updateProfilePicture(userId: string, url: string, client: PoolClient) {
-  const query = `UPDATE "users"
+  const query = `UPDATE "user"
     SET profile_picture = $2, updated_at = now()
     WHERE id = $1`;
   const values = [userId, url];
@@ -135,7 +135,7 @@ export async function updateProfilePicture(userId: string, url: string, client: 
 }
 
 export async function confirmProfileUpdate(userId: string, client: PoolClient) {
-  const query = `UPDATE "users"
+  const query = `UPDATE "user"
     SET updated_at = now()
     WHERE id = $1`;
   const values = [userId];

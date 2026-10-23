@@ -14,7 +14,7 @@ const validUser = {
 };
 
 async function deleteTestUsers() {
-  await pool.query(`DELETE FROM "users" WHERE handle_name LIKE 'test-%'`);
+  await pool.query(`DELETE FROM "user" WHERE handle_name LIKE 'test-%'`);
 }
 
 describe("POST /api/v1/auth/register", () => {

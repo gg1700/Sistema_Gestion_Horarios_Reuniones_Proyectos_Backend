@@ -59,3 +59,57 @@ export function validateEmail(value: unknown, field: string) {
   }
   return formatedEmail;
 }
+
+export function isEmptyValue(value: unknown) {
+  if (value === undefined || value === null) return true;
+  if (typeof value === "string" && value.trim().length === 0) return true;
+  if (Array.isArray(value) && value.length === 0) return true;
+  return false;
+}
+
+export function parseJsonText(value: unknown, field: string) {
+  if (typeof value !== "string" || value.trim().length === 0) {
+    return value;
+  }
+  try {
+    return JSON.parse(value);
+  } catch {
+    throw new ValidationError(`${field}: formato JSON invalido`);
+  }
+}
+
+export function validateOptionalVisibility(value: unknown) {
+  if (value === undefined) return true;
+  return validateVisibility(value);
+}
+
+export function validateText(value: unknown, field: string, maximumLength: number) {
+  if (typeof value !== "string") {
+    throw new ValidationError(`${field}: tipo de dato invalido`);
+  }
+  const formatedText = collapseSpaces(value);
+  if (formatedText.length < 1 || formatedText.length > maximumLength) {
+    throw new ValidationError(`${field}: debe tener entre 1 y ${maximumLength} caracteres`);
+  }
+  return formatedText;
+}
+
+export function validateOptionalText(value: unknown, field: string, maximumLength: number) {
+  if (isEmptyValue(value)) return null;
+  return validateText(value, field, maximumLength);
+}
+
+export function validateCalendarDate(value: unknown, field: string) {
+  if (typeof value !== "string" || !RegexConstants.regexDate.test(value.trim())) {
+    throw new ValidationError(`${field}: formato de fecha invalido, use AAAA-MM-DD`);
+  }
+  const formatedDate = value.trim();
+  const date = new Date(`${formatedDate}T00:00:00Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== formatedDate) {
+    throw new ValidationError(`${field}: fecha inexistente`);
+  }
+  if (date.getTime() > Date.now()) {
+    throw new ValidationError(`${field}: la fecha no puede ser futura`);
+  }
+  return formatedDate;
+}

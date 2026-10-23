@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS public.workexperience (
   id uuid PRIMARY KEY NOT NULL DEFAULT gen_random_uuid(),
-  user_id uuid NOT NULL REFERENCES public.users (id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public."user" (id) ON DELETE CASCADE,
   title varchar(150) NOT NULL,
   description varchar(200),
   company_name varchar(200),

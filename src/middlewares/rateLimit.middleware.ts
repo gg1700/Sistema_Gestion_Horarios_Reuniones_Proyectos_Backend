@@ -7,7 +7,7 @@ const fifteenMinutes = 15 * 60 * 1000;
 function sendLimitExceeded(req: Request, res: Response) {
   return res.status(429).json({
     success: false,
-    message: "Limite de peticiones excedido, intente nuevamente mas tarde"
+    message: "Limite de peticiones excedido, intente nuevamente mas tarde",
   });
 }
 
@@ -18,7 +18,7 @@ function createRateLimit(maximumRequests: number) {
     standardHeaders: "draft-8",
     legacyHeaders: false,
     handler: sendLimitExceeded,
-    skip: () => env.NODE_ENV === "test"
+    skip: () => env.NODE_ENV === "test",
   });
 }
 
@@ -27,3 +27,5 @@ export const registerRateLimit = createRateLimit(10);
 export const profileRateLimit = createRateLimit(20);
 
 export const deleteAccountRateLimit = createRateLimit(5);
+
+export const authRateLimit = createRateLimit(20);

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import * as SessionService from "../services/session.service";
+import { isActiveProfileUser } from "../repositories/profile-read.repository";
 
 export function verifySession(req: Request, res: Response, next: NextFunction) {
   const authorizationHeader = req.headers.authorization;
@@ -18,5 +19,24 @@ export function verifySession(req: Request, res: Response, next: NextFunction) {
       success: false,
       message: (error as Error).message
     });
+  }
+}
+
+export async function requireActiveProfileUser(req: Request, res: Response, next: NextFunction) {
+  const userId = req.user?.userId;
+  if (!userId || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(userId)) {
+    return res.status(401).json({ success: false, message: "Sesion invalida" });
+  }
+
+  try {
+    if (!(await isActiveProfileUser(userId))) {
+      return res.status(401).json({
+        success: false,
+        message: "Sesion invalida o usuario no disponible",
+      });
+    }
+    next();
+  } catch {
+    return res.status(500).json({ success: false, message: "No se pudo verificar la sesion" });
   }
 }

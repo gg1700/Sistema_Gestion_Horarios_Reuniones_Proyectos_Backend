@@ -6,10 +6,18 @@ import * as WorkExpTypes from "../types/work_experience.types";
 export async function existsUser(userId: string) {
   const query = `
     SELECT * FROM "user"
-    WHERE id = $1`;
+    WHERE id = $1 AND deleted_at IS NULL`;
   const values = [userId];
   const userFound = await processReturnQuery(query, values);
   return (userFound.length !== 0);
+}
+
+export async function lockActiveUser(userId: string, client: PoolClient) {
+  const { rows } = await client.query(
+    `SELECT id FROM public."user" WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
+    [userId]
+  );
+  return rows.length !== 0;
 }
 
 export async function updatePersonalInfo(userId: string, userInfo: Record<string, any>, client: PoolClient) {
@@ -21,7 +29,7 @@ export async function updatePersonalInfo(userId: string, userInfo: Record<string
   });
   const query = `UPDATE "user"
     SET ${setStatement.join(", ")}
-    WHERE id = $${values.length}`;
+    WHERE id = $${values.length} AND deleted_at IS NULL`;
   await client.query(query, values);
 }
 
@@ -129,7 +137,7 @@ export async function updateCountryInfo(userId: string, countries: ProfileTypes.
 export async function updateProfilePicture(userId: string, url: string, client: PoolClient) {
   const query = `UPDATE "user"
     SET profile_picture = $2, updated_at = now()
-    WHERE id = $1`;
+    WHERE id = $1 AND deleted_at IS NULL`;
   const values = [userId, url];
   await client.query(query, values);
 }
@@ -137,14 +145,15 @@ export async function updateProfilePicture(userId: string, url: string, client: 
 export async function confirmProfileUpdate(userId: string, client: PoolClient) {
   const query = `UPDATE "user"
     SET updated_at = now()
-    WHERE id = $1`;
+    WHERE id = $1 AND deleted_at IS NULL`;
   const values = [userId];
   await client.query(query, values);
 }
 
 export async function existsWorkExperience(id: string, userId: string) {
   const query = `SELECT * FROM "workexperience"
-    WHERE id = $1 AND user_id = $2`;
+    WHERE id = $1 AND user_id = $2
+    AND EXISTS (SELECT 1 FROM "user" WHERE id = $2 AND deleted_at IS NULL)`;
   const values = [id, userId];
   const workExpFound = await processReturnQuery(query, values);
   return (workExpFound.length !== 0);
@@ -152,7 +161,8 @@ export async function existsWorkExperience(id: string, userId: string) {
 
 export async function findWorkExperience(id: string, userId: string) {
   const query = `SELECT * FROM "workexperience"
-    WHERE id = $1 AND user_id = $2`;
+    WHERE id = $1 AND user_id = $2
+    AND EXISTS (SELECT 1 FROM "user" WHERE id = $2 AND deleted_at IS NULL)`;
   const values = [id, userId];
   const workExp = await processReturnQuery(query, values);
   return workExp;
@@ -168,19 +178,20 @@ export async function updateWorkExperience(id: string, userId: string, workExpIn
   const query = `UPDATE "workexperience"
     SET ${setStatement.join(", ")},
     updated_at = now()
-    WHERE id = $${values.length - 1} AND user_id = $${values.length}`;
+    WHERE id = $${values.length - 1} AND user_id = $${values.length}
+    AND EXISTS (SELECT 1 FROM "user" WHERE id = $${values.length} AND deleted_at IS NULL)`;
   await processReturnQuery(query, values);
 }
 
 export async function hasAdditionalInfo(userId: string) {
-  const query = `SELECT
+  const query = `SELECT EXISTS (SELECT 1 FROM "user" WHERE id = $1 AND deleted_at IS NULL) AND (
     EXISTS (SELECT 1 FROM "user_surname" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "user_phone" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "user_email" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "address" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "link" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "user_country" WHERE user_id = $1)
-    OR EXISTS (SELECT 1 FROM "workexperience" WHERE user_id = $1) AS registered`;
+    OR EXISTS (SELECT 1 FROM "workexperience" WHERE user_id = $1)) AS registered`;
   const values = [userId];
   const result = await processReturnQuery(query, values);
   return result[0].registered as boolean;

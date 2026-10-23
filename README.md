@@ -40,3 +40,41 @@ Para GitHub deben realizar los siguientes pasos
 4. Haz clic en **Register application**.
 5. Copia el **Client ID** y pégalo en tu archivo .env como GITHUB_CLIENT_ID.
 6. Haz clic en **Generate a new client secret**, cópialo inmediatamente y pégalo como GITHUB_CLIENT_SECRET.
+
+## Probar inicio de sesion OAuth2
+Para probar el inicio de sesión OAuth2, deben configurar una clave `COOKIE_SECRET` en su archivo `.env`.
+
+**1. Generar la clave secreta:**
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+**2. Agregarla al `.env`:**
+
+```dotenv
+COOKIE_SECRET=your_cookie_secret
+```
+
+Cada integrante lo genera para desarrollo local.
+
+**3. Iniciar el backend:**
+
+```bash
+npm run dev
+```
+
+**4. Probar el endpoint:**
+
+```bash
+curl -i http://localhost:3000/api/v1/auth/google
+```
+
+También pueden probar `/api/v1/auth/github`.
+
+La respuesta debe ser **HTTP 302**, con una cabecera `Location` hacia Google o GitHub.
+
+El caso de hacer la consulta con otro como facebook la respuesta sera **HTTP 400** como con el ejemplo de abajo.
+```bash
+curl -i http://localhost:3000/api/v1/auth/facebook
+```

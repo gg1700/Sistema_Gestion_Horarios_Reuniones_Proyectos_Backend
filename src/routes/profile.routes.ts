@@ -1,4 +1,3 @@
-
 import { Router } from "express";
 import * as MulterCheck from "../middlewares/multer.middleware";
 import * as SharpCheck from "../middlewares/sharp.middleware";
@@ -9,6 +8,13 @@ import * as ProfileController from "../controllers/profile.controller";
 import * as VisibilityController from "../controllers/visibility.controller";
 
 const router = Router();
+
+router.get(
+  "/",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  ProfileController.getOwnProfile
+);
 
 router.get(
   "/visibility",

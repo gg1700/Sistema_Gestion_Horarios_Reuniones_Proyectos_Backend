@@ -13,7 +13,8 @@
     "start": "node dist/app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "migrate-db": "tsx db/scripts/migrate.ts",
-    "reset-db": "tsx db/scripts/reset.ts"
+    "reset-db": "tsx db/scripts/reset.ts",
+    "my-migrations": "tsx db/my_scripts/migrate.ts"
   },
   "repository": {
     "type": "git",
@@ -36,7 +37,9 @@
     "@types/cors": "^2.8.19",
     "@types/dotenv": "^6.1.1",
     "@types/express": "^5.0.6",
+    "@types/multer": "^2.3.0",
     "@types/node": "^26.6.5",
+    "@types/sharp": "^0.31.1",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "globals": "^17.13.0",
@@ -50,10 +53,13 @@
   "dependencies": {
     "@types/pg": "^8.23.1",
     "bcrypt": "^6.0.0",
+    "cloudinary": "^2.11.0",
     "cors": "^2.8.6",
     "dotenv": "^18.0.8",
     "express": "^5.3.0",
-    "pg": "^8.23.1"
+    "multer": "^2.4.0",
+    "pg": "^8.23.1",
+    "sharp": "^0.35.5"
   },
   "eslintConfig": {
     "extends": "./node_modules/standard/eslintrc.json"

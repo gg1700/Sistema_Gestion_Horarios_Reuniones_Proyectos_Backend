@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import { rateLimit } from "express-rate-limit";
 import { env } from "../config/env.config";
 
+const fifteenMinutes = 15 * 60 * 1000;
+
 function sendLimitExceeded(req: Request, res: Response) {
   return res.status(429).json({
     success: false,
@@ -11,7 +13,7 @@ function sendLimitExceeded(req: Request, res: Response) {
 
 function createRateLimit(maximumRequests: number) {
   return rateLimit({
-    windowMs: 15 * 60 * 1000,
+    windowMs: fifteenMinutes,
     limit: maximumRequests,
     standardHeaders: "draft-8",
     legacyHeaders: false,
@@ -22,4 +24,4 @@ function createRateLimit(maximumRequests: number) {
 
 export const registerRateLimit = createRateLimit(10);
 export const visibilityRateLimit = createRateLimit(30);
-
+export const profileRateLimit = createRateLimit(20);

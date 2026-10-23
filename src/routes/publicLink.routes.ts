@@ -1,11 +1,8 @@
-import { Router, type Request } from "express";
+import { Router } from "express";
 import { createPublicLinkController } from "../controllers/publicLink.controller";
 import { publicLinkRepository } from "../services/publicLink.repository";
 import { PublicLinkService } from "../services/publicLink.service";
-
-type AuthenticatedRequest = Request & {
-  user?: { userId?: unknown };
-};
+import * as Session from "../middlewares/session.middleware";
 
 const router = Router();
 
@@ -13,11 +10,12 @@ const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
 
 const service = new PublicLinkService(publicLinkRepository, frontendUrl);
 
-const controller = createPublicLinkController(service, (req: Request) => {
-  const userId = (req as AuthenticatedRequest).user?.userId;
+const controller = createPublicLinkController(
+  service,
+  (req) => req.user?.userId ?? null
+);
 
-  return typeof userId === "string" ? userId : null;
-});
+router.use(Session.verifySession);
 
 router.get("/", controller.get);
 router.get("/availability", controller.checkAvailability);

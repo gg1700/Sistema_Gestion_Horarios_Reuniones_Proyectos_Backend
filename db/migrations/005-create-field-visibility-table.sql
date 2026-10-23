@@ -7,7 +7,7 @@ CREATE TABLE public.field_visibility (
 
     CONSTRAINT fk_field_visibility_user
         FOREIGN KEY (user_id)
-        REFERENCES public.users(id)
+        REFERENCES public."user"(id)
         ON DELETE CASCADE,
 
     CONSTRAINT uq_field_visibility_user_section

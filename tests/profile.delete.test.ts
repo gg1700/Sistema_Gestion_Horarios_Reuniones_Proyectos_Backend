@@ -35,7 +35,6 @@ beforeAll(async () => {
   env.ENCRYPTION_KEY = randomBytes(32).toString("base64");
   const { rows } = await pool.query(`SELECT to_regclass('public.external_account') AS name`);
   if (!rows[0].name) {
-    // Temporary test fixture for the T-29 contract, not a T-24 migration.
     await pool.query(`CREATE TABLE public.external_account (
       id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
       user_id uuid NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE,

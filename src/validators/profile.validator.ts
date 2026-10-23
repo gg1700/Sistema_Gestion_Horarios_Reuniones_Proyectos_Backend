@@ -3,6 +3,7 @@ import * as ProfileTypes from "../types/profile.types";
 import * as RegexConstants from "../utils/constants/regex.constants";
 import * as GeneralValidations from "../validators/general.validator";
 import { capitalize, collapseSpaces } from "../utils/normalize";
+import * as ProfileConstants from "../utils/constants/profile.constants";
 
 function validateSurname(lastname: unknown) {
   const { surname, visibility } = lastname as ProfileTypes.Surname;
@@ -95,5 +96,145 @@ export function validateEditablePersonalInfo(payload: unknown) {
   if (p.addresses !== undefined) proccessedInfo.addresses = GeneralValidations.validateList(p.addresses, validateAdress, "Direcciones");
   if (p.links !== undefined) proccessedInfo.links = GeneralValidations.validateList(p.links, validateLink, "Enlaces");
   if (p.countries !== undefined) proccessedInfo.countries = GeneralValidations.validateList(p.countries, validateCountry, "Paises")
+  return proccessedInfo;
+}
+
+function validateNewSurname(value: unknown) {
+  const lastname = GeneralValidations.validateObject(value, "Segundo Apellido");
+  return {
+    surname: GeneralValidations.validateProperNoun(lastname.surname, "Segundo Apellido"),
+    visibility: GeneralValidations.validateOptionalVisibility(lastname.visibility)
+  };
+}
+
+function validateNewPhone(value: unknown): ProfileTypes.NewPhone {
+  const phone = GeneralValidations.validateObject(value, "Telefono");
+  if ((typeof phone.phoneNumber !== "string") || (typeof phone.countryCode !== "string")) {
+    throw new ValidationError("Tipo de dato invalido en el numero de telefono");
+  }
+  const formatedPhoneNumber = phone.phoneNumber.trim();
+  if (!RegexConstants.regexPhone.test(formatedPhoneNumber)) {
+    throw new ValidationError("Formato de numero de telefono invalido");
+  }
+  const formatedCountryCode = phone.countryCode.trim().replace(/^\+/, "");
+  if (!RegexConstants.regexCountryCode.test(formatedCountryCode)) {
+    throw new ValidationError("Codigo de pais invalido");
+  }
+  return {
+    phoneNumber: formatedPhoneNumber,
+    countryCode: formatedCountryCode,
+    visibility: GeneralValidations.validateOptionalVisibility(phone.visibility)
+  };
+}
+
+function validateNewContactEmail(value: unknown): ProfileTypes.NewContactEmail {
+  const contactEmail = GeneralValidations.validateObject(value, "Correo de contacto");
+  return {
+    email: GeneralValidations.validateEmail(contactEmail.email, "Correo de contacto"),
+    visibility: GeneralValidations.validateOptionalVisibility(contactEmail.visibility)
+  };
+}
+
+function validateNewAddress(value: unknown): ProfileTypes.NewAddress {
+  const newAddress = GeneralValidations.validateObject(value, "Direccion");
+  if (typeof newAddress.address !== "string") {
+    throw new ValidationError("Tipo de dato invalido en direccion");
+  }
+  const formatedAddress = capitalize(collapseSpaces(newAddress.address));
+  if (formatedAddress.length < 1 || formatedAddress.length > 300) {
+    throw new ValidationError("Direccion con cantidad de caracteres invalida");
+  }
+  return { address: formatedAddress, visibility: GeneralValidations.validateOptionalVisibility(newAddress.visibility) };
+}
+
+function validateNewLink(value: unknown): ProfileTypes.NewLink {
+  const link = GeneralValidations.validateObject(value, "Enlace");
+  if ((typeof link.text !== "string") || (typeof link.url !== "string")) {
+    throw new ValidationError("Tipo de dato invalido en el enlace");
+  }
+  const formatedText = capitalize(collapseSpaces(link.text));
+  if (formatedText.length < 1 || formatedText.length > 150) {
+    throw new ValidationError("Texto del enlace con cantidad de caracteres invalida");
+  }
+  const rawURL = link.url.trim();
+  if ((rawURL.length < 1 || rawURL.length > 300) || RegexConstants.regexForbiddenUrlCharacters.test(rawURL)) {
+    throw new ValidationError("Formato de URL invalido");
+  }
+  const formatedURL = RegexConstants.regexURLScheme.test(rawURL) ? rawURL : `https://${rawURL}`;
+  if (!URL.canParse(formatedURL)) {
+    throw new ValidationError("URL invalida");
+  }
+  const newURL = new URL(formatedURL);
+  if (newURL.protocol !== "http:" && newURL.protocol !== "https:") {
+    throw new ValidationError("URL invalida, protocolo invalido");
+  }
+  if (!newURL.hostname.includes(".")) {
+    throw new ValidationError("URL invalida, dominio incompleto");
+  }
+  return {
+    text: formatedText,
+    url: newURL.toString(),
+    visibility: GeneralValidations.validateOptionalVisibility(link.visibility)
+  };
+}
+
+function validateNewCountry(value: unknown): ProfileTypes.NewCountry {
+  const country = GeneralValidations.validateObject(value, "Pais");
+  return {
+    countryName: GeneralValidations.validateProperNoun(country.countryName, "Pais"),
+    visibility: GeneralValidations.validateOptionalVisibility(country.visibility)
+  };
+}
+
+function validateNewWorkExperience(value: unknown): ProfileTypes.NewWorkExperience {
+  const workExperience = GeneralValidations.validateObject(value, "Experiencia laboral");
+  const startDate = GeneralValidations.validateCalendarDate(workExperience.startDate, "Fecha de inicio");
+  const endDate = GeneralValidations.isEmptyValue(workExperience.endDate)
+    ? null
+    : GeneralValidations.validateCalendarDate(workExperience.endDate, "Fecha de fin");
+  if (endDate && endDate < startDate) {
+    throw new ValidationError("Experiencia laboral: la fecha de fin no puede ser anterior a la fecha de inicio");
+  }
+  return {
+    title: GeneralValidations.validateText(workExperience.title, "Cargo", 150),
+    description: GeneralValidations.validateOptionalText(workExperience.description, "Descripcion", 200),
+    companyName: GeneralValidations.validateOptionalText(workExperience.companyName, "Empresa", 200),
+    startDate: startDate,
+    endDate: endDate,
+    visibility: GeneralValidations.validateOptionalVisibility(workExperience.visibility)
+  };
+}
+
+function validateMaximumItems<T>(items: T[], maximum: number, field: string) {
+  if (items.length > maximum) {
+    throw new ValidationError(`${field}: se permite un maximo de ${maximum}`);
+  }
+  return items;
+}
+
+export function validateAdditionalInfo(payload: unknown) {
+  const additionalInfo = GeneralValidations.validateObject(payload, "Informacion adicional");
+  const surname = GeneralValidations.parseJsonText(additionalInfo.surname, "Segundo Apellido");
+  const phones = GeneralValidations.parseJsonText(additionalInfo.phones, "Telefonos");
+  const contactEmails = GeneralValidations.parseJsonText(additionalInfo.contactEmails, "Correos de Contacto");
+  const addresses = GeneralValidations.parseJsonText(additionalInfo.addresses, "Direcciones");
+  const links = GeneralValidations.parseJsonText(additionalInfo.links, "Enlaces");
+  const countries = GeneralValidations.parseJsonText(additionalInfo.countries, "Paises");
+  const workExperiences = GeneralValidations.parseJsonText(additionalInfo.workExperiences, "Experiencias laborales");
+
+  const proccessedInfo: ProfileTypes.AdditionalInfo = {};
+  if (!GeneralValidations.isEmptyValue(surname)) proccessedInfo.surname = validateNewSurname(surname);
+  if (!GeneralValidations.isEmptyValue(phones)) proccessedInfo.phones = GeneralValidations.validateList(phones, validateNewPhone, "Telefonos");
+  if (!GeneralValidations.isEmptyValue(contactEmails)) proccessedInfo.contactEmails = GeneralValidations.validateList(contactEmails, validateNewContactEmail, "Correos de Contacto");
+  if (!GeneralValidations.isEmptyValue(addresses)) proccessedInfo.addresses = GeneralValidations.validateList(addresses, validateNewAddress, "Direcciones");
+  if (!GeneralValidations.isEmptyValue(links)) {
+    const validatedLinks: ProfileTypes.NewLink[] = GeneralValidations.validateList(links, validateNewLink, "Enlaces");
+    proccessedInfo.links = validateMaximumItems(validatedLinks, ProfileConstants.maximumLinks, "Enlaces");
+  }
+  if (!GeneralValidations.isEmptyValue(countries)) proccessedInfo.countries = GeneralValidations.validateList(countries, validateNewCountry, "Paises");
+  if (!GeneralValidations.isEmptyValue(workExperiences)) {
+    const validatedWorkExperiences: ProfileTypes.NewWorkExperience[] = GeneralValidations.validateList(workExperiences, validateNewWorkExperience, "Experiencias laborales");
+    proccessedInfo.workExperiences = validateMaximumItems(validatedWorkExperiences, ProfileConstants.maximumWorkExperiences, "Experiencias laborales");
+  }
   return proccessedInfo;
 }

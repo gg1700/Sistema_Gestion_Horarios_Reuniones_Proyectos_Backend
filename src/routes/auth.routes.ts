@@ -5,7 +5,6 @@ import * as AuthController from "../controllers/auth.controller";
 
 const router = Router();
 
-
 router.post(
   "/register",
   RateLimit.registerRateLimit,
@@ -13,6 +12,9 @@ router.post(
   AuthController.registerUser
 );
 
-router.get("/:provider",RateLimit.authRateLimit,AuthController.startAuthorization);
-
+router.get(
+  "/:provider",
+  RateLimit.authRateLimit,
+  AuthController.startAuthorization
+);
 export default router;

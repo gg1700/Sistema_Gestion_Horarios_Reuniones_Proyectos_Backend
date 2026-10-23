@@ -1,10 +1,11 @@
-import express, { Application } from 'express'
-import cors from 'cors'
-import router from '../routes/server.routes'
-import cookieParser from 'cookie-parser'
-import { env } from './env.config'
+import express, { Application } from "express";
+import cors from "cors";
+import cookieParser from "cookie-parser";
 
-export const app: Application = express()
+import router from "../routes/server.routes";
+import { env } from "./env.config";
+
+export const app: Application = express();
 
 app.use(cors());
 app.use(express.json());

@@ -25,4 +25,6 @@ export const env = {
   CLOUDINARY_CLOUD_NAME: verifyEnvVariables("CLOUDINARY_CLOUD_NAME", undefined),
   CLOUDINARY_API_KEY: verifyEnvVariables("CLOUDINARY_API_KEY", undefined),
   CLOUDINARY_API_SECRET: verifyEnvVariables("CLOUDINARY_API_SECRET", undefined),
+  JWT_SECRET: verifyEnvVariables("JWT_SECRET", undefined),
+  JWT_EXPIRES_IN: verifyEnvVariables("JWT_EXPIRES_IN", "1d"),
 };

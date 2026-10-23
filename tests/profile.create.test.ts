@@ -16,7 +16,7 @@ const validAdditionalInfo = {
 };
 
 async function deleteTestUsers() {
-  await pool.query(`DELETE FROM "users" WHERE handle_name LIKE 'test-%'`);
+  await pool.query(`DELETE FROM "user" WHERE handle_name LIKE 'test-%'`);
 }
 
 async function registerTestUser() {
@@ -50,7 +50,7 @@ describe("POST /api/v1/profile", () => {
     expect(response.status).toBe(201);
 
     const { rows } = await pool.query(
-      `SELECT l.url, w.title, w.company_name FROM "users" u
+      `SELECT l.url, w.title, w.company_name FROM "user" u
        JOIN "link" l ON l.user_id = u.id
        JOIN "workexperience" w ON w.user_id = u.id
        WHERE u.handle_name = 'test-profile'`

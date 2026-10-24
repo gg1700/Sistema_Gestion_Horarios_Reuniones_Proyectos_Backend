@@ -12,6 +12,7 @@ router.get(
 
 router.delete(
   "/accounts/:provider",
+  RateLimit.authRateLimit,
   AuthController.revokeAccessAccount
 );
 

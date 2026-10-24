@@ -21,8 +21,11 @@ export const env = {
   GITHUB_CLIENT_ID: verifyEnvVariables("GITHUB_CLIENT_ID", undefined),
   GITHUB_CLIENT_SECRET: verifyEnvVariables("GITHUB_CLIENT_SECRET", undefined),
   GITHUB_REDIRECT_URI: verifyEnvVariables("GITHUB_REDIRECT_URI", undefined),
+  COOKIE_SECRET: verifyEnvVariables("COOKIE_SECRET", undefined),
   CLOUDINARY_CLOUD_NAME: verifyEnvVariables("CLOUDINARY_CLOUD_NAME", undefined),
   CLOUDINARY_API_KEY: verifyEnvVariables("CLOUDINARY_API_KEY", undefined),
   CLOUDINARY_API_SECRET: verifyEnvVariables("CLOUDINARY_API_SECRET", undefined),
+  JWT_SECRET: verifyEnvVariables("JWT_SECRET", undefined),
+  JWT_EXPIRES_IN: verifyEnvVariables("JWT_EXPIRES_IN", "1d"),
   ENCRYPTION_KEY: verifyEnvVariables("ENCRYPTION_KEY", undefined),
 };

@@ -11,3 +11,21 @@ export class ValidationError extends ServerError {
     super(message, 400);
   }
 }
+
+export class AuthenticationError extends ServerError {
+  constructor (message: string) {
+    super(message, 401);
+  }
+}
+
+export class NotFoundError extends ServerError {
+  constructor (message: string) {
+    super(message, 404);
+  }
+}
+
+export class ConflictError extends ServerError {
+  constructor (message: string) {
+    super(message, 409);
+  }
+}

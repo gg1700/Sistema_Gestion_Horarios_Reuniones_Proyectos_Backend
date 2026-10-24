@@ -9,7 +9,7 @@ build/
 .env
 .env.local
 .env.*.local
-
+.env.test
 # Logs y Registros
 *.log
 npm-debug.log*
@@ -36,3 +36,10 @@ Thumbs.db
 
 # Typescript
 *.tsbuildinfo
+
+# Migraciones locales
+db/my_migrations/
+db/my_scripts/
+
+# No toquen ehhh
+bruno/

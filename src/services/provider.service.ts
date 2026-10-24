@@ -4,13 +4,16 @@ import { decryptToken } from "../utils/token";
 
 export async function revokeAccessAtProvider(externalAccount: AuthTypes.ExternalAccountDB) {
   try {
+    const signal = AbortSignal.timeout(5000);
     let response, decryptedToken;
     if (externalAccount.provider === AuthTypes.ExternalProvider.GOOGLE) {
       decryptedToken = decryptToken(externalAccount.refresh_token ?? externalAccount.access_token);
       response = await fetch("https://oauth2.googleapis.com/revoke", {
         method: "POST",
         headers: { "Content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ token: decryptedToken })
+        body: new URLSearchParams({ token: decryptedToken }),
+        signal: signal,
+        redirect: "error"
       });
       if (!response.ok) 
         return { result: false, statusCode: response.status, message: "Error al revocar acceso a Google" };
@@ -28,7 +31,9 @@ export async function revokeAccessAtProvider(externalAccount: AuthTypes.External
           "Content-type": "application/json",
           "User-agent": "tu-app"
         },
-        body: JSON.stringify({ access_token: decryptedToken })
+        body: JSON.stringify({ access_token: decryptedToken }),
+        signal: signal,
+        redirect: "error"
       });
       if (response.status !== 204)
         return { result: false, statusCode: response.status, message: "Error al revocar acceso a GitHub" }

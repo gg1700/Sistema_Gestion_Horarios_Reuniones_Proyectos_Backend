@@ -13,10 +13,20 @@ export async function viewAccountVinculation(userId: string) {
     if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
 
     const accounts = await AuthRepo.getExternalAccounts(userId);
-    if (!accounts || accounts.length === 0) {
+    const formatedAccounts = accounts.map(a => { 
+      return { 
+        provider: a.provider,
+        provider_user_id: a.provider_user_id,
+        provider_username: a.provider_username,
+        provider_user_email: a.provoder_user_email,
+        scopes: a.scopes,
+        state: a.state 
+      }
+    });
+    if (!formatedAccounts || formatedAccounts.length === 0) {
       return { result: true, statusCode: 200, message: "El usuario no tiene cuentas externas vinculadas aun" };
     }
-    return { result: true, statusCode: 200, message: "Informacion de cuentas vinculadas obtenida correctamente", data: accounts };
+    return { result: true, statusCode: 200, message: "Informacion de cuentas vinculadas obtenida correctamente", data: formatedAccounts };
   } catch (err) {
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
   }

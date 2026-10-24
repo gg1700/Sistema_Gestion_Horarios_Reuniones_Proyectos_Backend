@@ -29,7 +29,7 @@ export async function revokeAccessAtProvider(externalAccount: AuthTypes.External
           Authorization: `Basic ${basic}`,
           Accept: "application/vnd.github+json",
           "Content-type": "application/json",
-          "User-agent": "tu-app"
+          "User-agent": "backend-servicios-telematicos"
         },
         body: JSON.stringify({ access_token: decryptedToken }),
         signal: signal,

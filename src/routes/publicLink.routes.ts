@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { createPublicLinkController } from "../controllers/publicLink.controller";
-import { publicLinkRepository } from "../services/publicLink.repository";
+import { publicLinkRepository } from "../repositories/publicLink.repository";
 import { PublicLinkService } from "../services/publicLink.service";
 import * as Session from "../middlewares/session.middleware";
 

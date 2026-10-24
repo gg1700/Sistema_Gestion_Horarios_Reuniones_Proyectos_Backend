@@ -18,7 +18,7 @@ export async function viewAccountVinculation(userId: string) {
         provider: a.provider,
         provider_user_id: a.provider_user_id,
         provider_username: a.provider_username,
-        provider_user_email: a.provoder_user_email,
+        provider_user_email: a.provider_user_email,
         scopes: a.scopes,
         state: a.state 
       }

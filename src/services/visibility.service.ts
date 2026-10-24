@@ -59,24 +59,6 @@ export async function getVisibility(userId: string) {
     }
   }
 
-  const githubRows = await processReturnQuery(
-    `SELECT section, visible
-     FROM public.field_visibility
-     WHERE user_id = $1`,
-    [userId]
-  );
-
-  for (const [type, section] of Object.entries(githubSections)) {
-    const configuration = githubRows.find(
-      row => row.section === section
-    );
-
-    visibility.push({
-      type: type as VisibilityChange["type"],
-      visible: configuration?.visible ?? false
-    });
-  }
-
   return visibility;
 }
 
@@ -133,21 +115,6 @@ export async function updateVisibility(
 
   await processTransaction(async client => {
     for (const change of changes) {
-      if (change.type in githubSections) {
-        const section = githubSections[change.type];
-
-        await client.query(
-          `INSERT INTO public.field_visibility
-             (user_id, section, visible)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (user_id, section)
-           DO UPDATE SET visible = EXCLUDED.visible`,
-          [userId, section, change.visible]
-        );
-
-        continue;
-      }
-
       const table = tables[change.type];
 
       const query = change.type === "surname"

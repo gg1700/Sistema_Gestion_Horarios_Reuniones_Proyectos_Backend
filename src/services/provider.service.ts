@@ -10,7 +10,7 @@ export async function revokeAccessAtProvider(externalAccount: AuthTypes.External
       response = await fetch("https://oauth2.googleapis.com/revoke", {
         method: "POST",
         headers: { "Content-type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ decryptedToken })
+        body: new URLSearchParams({ token: decryptedToken })
       });
       if (!response.ok) 
         return { result: false, statusCode: response.status, message: "Error al revocar acceso a Google" };
@@ -20,7 +20,7 @@ export async function revokeAccessAtProvider(externalAccount: AuthTypes.External
       const clientId = env.GITHUB_CLIENT_ID;
       const secretId = env.GITHUB_CLIENT_SECRET;
       const basic = Buffer.from(`${clientId}:${secretId}`).toString("base64");
-      response = await fetch(`https://api.github.com/${basic}/grant`, {
+      response = await fetch(`https://api.github.com/applications/${encodeURIComponent(clientId)}/grant`, {
         method: "DELETE",
         headers: {
           Authorization: `Basic ${basic}`,

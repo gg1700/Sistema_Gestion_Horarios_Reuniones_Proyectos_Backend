@@ -36,7 +36,7 @@ export async function revokeAccessAccount(userId: string, provider: string) {
     const { result, statusCode, message } = await ProviderService.revokeAccessAtProvider(providerAccount);
     if (!result) return { result: result, statusCode: statusCode, message: message };
 
-    const deletedAccount = await AuthRepo.deleteExternalAccount(userId, providerAccount.id);
+    const deletedAccount = await AuthRepo.deleteExternalAccount(providerAccount.id, userId);
     if (!deletedAccount || deletedAccount.length === 0) 
       return { result: false, statusCode: 400, message: "Error al eliminar registro de cuenta revocada" };
     

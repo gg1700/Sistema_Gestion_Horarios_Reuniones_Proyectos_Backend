@@ -43,7 +43,7 @@ export function validateDate(value: unknown, field: string) {
 
 export function validateExternalProvider(value: unknown) {
   if (!value || typeof value !== "string") throw new ValidationError("Valor de proveedor invalido");
-  if (Object.values(AuthTypes.ExternalProvider).includes(value as AuthTypes.ExternalProvider)) {
+  if (!Object.values(AuthTypes.ExternalProvider).includes(value as AuthTypes.ExternalProvider)) {
     throw new ValidationError("Proveedor invalido");
   }
   return value;

@@ -16,7 +16,7 @@ router.get("/health", (req: Request, res: Response) => {
 
 router.use("/api/v1/profile/public-link", publicLinkRoutes);
 router.use("/api/v1/profile", ProfileRoutes);
-router.use("/api/v1/auth", AuthRoutes);
+router.use("/api/v1/auth", AuthRoutes)
 
 router.get(
   "/api/v1/public/profiles/:handle",

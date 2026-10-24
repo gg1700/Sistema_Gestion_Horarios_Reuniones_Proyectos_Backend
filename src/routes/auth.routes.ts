@@ -5,6 +5,17 @@ import * as AuthController from "../controllers/auth.controller";
 
 const router = Router();
 
+router.get(
+  "/accounts",
+  AuthController.viewAccountVinculation
+);
+
+router.delete(
+  "/accounts/:provider",
+  RateLimit.authRateLimit,
+  AuthController.revokeAccessAccount
+);
+
 router.post(
   "/register",
   RateLimit.registerRateLimit,
@@ -17,4 +28,5 @@ router.get(
   RateLimit.authRateLimit,
   AuthController.startAuthorization
 );
+
 export default router;

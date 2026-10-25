@@ -20,10 +20,10 @@ export async function existsHandleName(handleName: string) {
 }
 
 export async function insertUser(user: AuthTypes.RegisterUserDB) {
-  const query = `INSERT INTO "user" (handle_name, name, first_surname, email, password_hash)
-    VALUES ($1, $2, $3, $4, $5)
+  const query = `INSERT INTO "user" (handle_name, name, first_surname, email)
+    VALUES ($1, $2, $3, $4)
     RETURNING id, handle_name, name, first_surname, email`;
-  const values = [user.handle_name, user.name, user.first_surname, user.email, user.password_hash];
+  const values = [user.handle_name, user.name, user.first_surname, user.email];
   const insertedUsers = await processReturnQuery(query, values);
   return insertedUsers[0] as AuthTypes.UserDB;
 }

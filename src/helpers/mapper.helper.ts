@@ -81,13 +81,12 @@ export function editableWorkExperienceToDB(payload: WorkExpTypes.EditableWorkExp
   return result;
 }
 
-export function registerUserToDB(payload: AuthTypes.RegisterUser, passwordHash: string) {
+export function registerUserToDB(payload: AuthTypes.RegisterUser, email: string) {
   const result: AuthTypes.RegisterUserDB = {
     handle_name: payload.handleName,
     name: payload.name,
     first_surname: payload.firstSurname,
-    email: payload.email,
-    password_hash: passwordHash
+    email: email
   };
   return result;
 }

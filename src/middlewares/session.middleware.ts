@@ -22,6 +22,26 @@ export function verifySession(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export function verifyRegistration(req: Request, res: Response, next: NextFunction) {
+  const authorizationHeader = req.headers.authorization;
+  if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "Comprobante de registro no proporcionado"
+    });
+  }
+  try {
+    const token = authorizationHeader.slice("Bearer ".length).trim();
+    req.registration = SessionService.verifyRegistrationToken(token);
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: (error as Error).message
+    });
+  }
+}
+
 export async function requireActiveProfileUser(req: Request, res: Response, next: NextFunction) {
   const userId = req.user?.userId;
   if (!userId || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(userId)) {

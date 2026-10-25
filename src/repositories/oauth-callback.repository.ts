@@ -1,4 +1,3 @@
-
 import pool from "../config/database.config";
 import type { OAuthLinkedAccount } from "../types/oauth-callback.types";
 import { encryptToken } from "../utils/token";

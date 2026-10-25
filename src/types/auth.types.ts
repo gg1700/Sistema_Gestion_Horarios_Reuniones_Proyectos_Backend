@@ -2,8 +2,6 @@ export interface RegisterUser {
   handleName: string;
   name: string;
   firstSurname: string;
-  email: string;
-  password: string;
 }
 
 export interface RegisterUserDB {
@@ -11,7 +9,6 @@ export interface RegisterUserDB {
   name: string;
   first_surname: string;
   email: string;
-  password_hash: string;
 }
 
 export interface UserDB {

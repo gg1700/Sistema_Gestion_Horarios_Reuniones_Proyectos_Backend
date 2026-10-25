@@ -14,23 +14,11 @@ function validateHandleName(handleName: unknown) {
   return formatedHandleName;
 }
 
-function validatePassword(password: unknown) {
-  if (typeof password !== "string") {
-    throw new ValidationError("Contraseña: tipo de dato invalido");
-  }
-  if (!RegexConstants.regexPassword.test(password)) {
-    throw new ValidationError("Contraseña: debe tener de 8 a 72 caracteres sin espacios, con al menos una letra y un numero");
-  }
-  return password;
-}
-
 export function validateRegisterUser(payload: unknown): AuthTypes.RegisterUser {
   const newUser = GeneralValidations.validateObject(payload, "Registro");
   return {
     handleName: validateHandleName(newUser.handleName),
     name: GeneralValidations.validateProperNoun(newUser.name, "Nombre"),
-    firstSurname: GeneralValidations.validateProperNoun(newUser.firstSurname, "Primer Apellido"),
-    email: GeneralValidations.validateEmail(newUser.email, "Correo electronico"),
-    password: validatePassword(newUser.password)
+    firstSurname: GeneralValidations.validateProperNoun(newUser.firstSurname, "Primer Apellido")
   };
 }

@@ -6,7 +6,7 @@ import pool from "../src/config/database.config";
 import { env } from "../src/config/env.config";
 import * as DeletionRepo from "../src/repositories/account-deletion.repository";
 import * as ProfileRepo from "../src/repositories/profile.repository";
-import { createSession } from "../src/services/session.service";
+import { createRegistrationToken, createSession } from "../src/services/session.service";
 import { encryptToken } from "../src/utils/token";
 
 const route = "/api/v1/profile";
@@ -170,7 +170,8 @@ describe("DELETE /api/v1/profile", () => {
       expect(responses.map(response => response.status)).toEqual([401, 401, 401, 401, 401]);
     }
     expect((await pool.query(`SELECT id FROM public."user" WHERE handle_name = 'test-delete-owner' AND public_link_active = true AND deleted_at IS NULL`)).rows).toEqual([]);
-    const registered = await request(app).post("/api/v1/auth/register").send({ handleName: "test-delete-owner", name: "Nueva", firstSurname: "Persona", email: "delete-owner@example.com", password: "Segura123" });
+    const registration = createRegistrationToken({ email: "delete-owner@example.com", provider: "google" });
+    const registered = await request(app).post("/api/v1/auth/register").set("Authorization", `Bearer ${registration.token}`).send({ handleName: "test-delete-owner", name: "Nueva", firstSurname: "Persona" });
     expect(registered.status).toBe(201);
     ids.push(registered.body.data.user.id);
   });

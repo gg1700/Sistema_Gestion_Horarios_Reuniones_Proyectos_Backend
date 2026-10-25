@@ -2,6 +2,7 @@ import request from "supertest";
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { app } from "../src/config/server.config";
 import pool from "../src/config/database.config";
+import * as SessionService from "../src/services/session.service";
 
 const profileRoute = "/api/v1/profile";
 
@@ -20,12 +21,11 @@ async function deleteTestUsers() {
 }
 
 async function registerTestUser() {
-  const response = await request(app).post("/api/v1/auth/register").send({
+  const registration = SessionService.createRegistrationToken({ email: "test.profile@mail.com", provider: "google" });
+  const response = await request(app).post("/api/v1/auth/register").set("Authorization", `Bearer ${registration.token}`).send({
     handleName: "test-profile",
     name: "ana",
-    firstSurname: "perez",
-    email: "test.profile@mail.com",
-    password: "Segura123"
+    firstSurname: "perez"
   });
   return `Bearer ${response.body.data.session.token}`;
 }

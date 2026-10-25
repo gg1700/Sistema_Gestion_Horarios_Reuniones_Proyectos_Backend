@@ -1,6 +1,7 @@
 import { ValidationError } from "../helpers/errors.helper";
 import { capitalize, collapseSpaces } from "../utils/normalize";
 import * as RegexConstants from "../utils/constants/regex.constants";
+import { phoneDigitsByCountryCode } from "../utils/constants/phone.constants";
 
 export function validateProperNoun(value: unknown, field: string) {
   if (typeof value !== "string") {
@@ -112,4 +113,19 @@ export function validateCalendarDate(value: unknown, field: string) {
     throw new ValidationError(`${field}: la fecha no puede ser futura`);
   }
   return formatedDate;
+}
+
+function describeDigitsRange(minimum: number, maximum: number) {
+  return minimum === maximum ? `${minimum} digitos` : `entre ${minimum} y ${maximum} digitos`;
+}
+
+export function validatePhoneDigits(phoneNumber: string, countryCode: string, field: string) {
+  const digitsRange = phoneDigitsByCountryCode[countryCode];
+  if (!digitsRange) {
+    throw new ValidationError(`${field}: codigo de pais +${countryCode} no soportado`);
+  }
+  if (phoneNumber.length < digitsRange.minimum || phoneNumber.length > digitsRange.maximum) {
+    throw new ValidationError(`${field}: el codigo +${countryCode} requiere ${describeDigitsRange(digitsRange.minimum, digitsRange.maximum)}`);
+  }
+  return phoneNumber;
 }

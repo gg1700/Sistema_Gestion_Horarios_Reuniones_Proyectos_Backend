@@ -1,16 +1,17 @@
 import { Request, Response } from "express";
-
 import * as AuthService from "../services/auth.service";
 import * as OAuthService from "../services/oauth.service";
-
 import { validateProvider } from "../validators/oauth.validator";
 import { ValidationError } from "../helpers/errors.helper";
 import { env } from "../config/env.config";
 
 export async function registerUser(req: Request, res: Response) {
   try {
+    if (!req.registration) {
+      return res.status(401).json({ success: false, message: "Comprobante de registro no proporcionado" });
+    }
     const { result, statusCode, message, data } =
-      await AuthService.registerUser(req.body);
+      await AuthService.registerUser(req.registration, req.body);
 
     if (!result) {
       return res.status(statusCode).json({

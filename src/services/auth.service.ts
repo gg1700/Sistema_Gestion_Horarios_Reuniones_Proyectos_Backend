@@ -1,7 +1,7 @@
-import bcrypt from "bcrypt";
 import * as AuthTypes from "../types/auth.types";
 import * as AuthRepo from "../repositories/auth.repository";
 import * as SessionService from "./session.service";
+import * as TokenTypes from "../types/token.types";
 import { registerUserToDB, userFromDB } from "../helpers/mapper.helper";
 import { ConflictError, ServerError } from "../helpers/errors.helper";
 
@@ -12,11 +12,10 @@ async function verifyUserAvailability(email: string, handleName: string) {
   if (handleNameTaken) throw new ConflictError("El nombre de usuario ya esta registrado");
 }
 
-export async function registerUser(newUser: AuthTypes.RegisterUser) {
+export async function registerUser(registration: TokenTypes.RegistrationClaims, newUser: AuthTypes.RegisterUser) {
   try {
-    await verifyUserAvailability(newUser.email, newUser.handleName);
-    const passwordHash = await bcrypt.hash(newUser.password, 10);
-    const insertedUser = await AuthRepo.insertUser(registerUserToDB(newUser, passwordHash));
+    await verifyUserAvailability(registration.email, newUser.handleName);
+    const insertedUser = await AuthRepo.insertUser(registerUserToDB(newUser, registration.email));
     const user = userFromDB(insertedUser);
     const session = SessionService.createSession(user.id, user.handleName);
     return { result: true, statusCode: 201, message: "Usuario registrado correctamente", data: { user: user, session: session } };

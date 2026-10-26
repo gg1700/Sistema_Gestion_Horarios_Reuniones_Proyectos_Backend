@@ -19,6 +19,11 @@ export function generateAuthorization(provider: OAuthProvider): AuthorizationSta
   url.searchParams.set("code_challenge", codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
 
+  if (provider === "google") {
+    url.searchParams.set("access_type", "offline");
+    url.searchParams.set("prompt", "consent");
+  }
+
   return {
     authorizationUrl: url.toString(),
     flow: { provider, state, codeVerifier },

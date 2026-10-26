@@ -37,23 +37,30 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
   try {
     const provider = validateProvider(req.params.provider);
     const authorization = req.headers.authorization;
+    const sessionToken = req.signedCookies?.session;
+    let userId: string | null = null;
 
-    if (!authorization?.startsWith("Bearer ")) {
-      res.status(401).json({ success: false, message: "Sesion requerida" });
-      return;
-    }
-    let userId: string;
+    if (authorization || sessionToken) {
+      const token = authorization?.startsWith("Bearer ")
+        ? authorization.slice(7).trim()
+        : typeof sessionToken === "string" ? sessionToken : "";
 
-    try {
-      userId = SessionService.verifySession(authorization.slice(7).trim()).userId;
-    } catch {
-      res.status(401).json({ success: false, message: "Sesion invalida" });
-      return;
-    }
+      if (!token) {
+        res.status(401).json({ success: false, message: "Sesion invalida" });
+        return;
+      }
 
-    if (!(await isActiveProfileUser(userId))) {
-      res.status(401).json({ success: false, message: "Usuario no disponible" });
-      return;
+      try {
+        userId = SessionService.verifySession(token).userId;
+      } catch {
+        res.status(401).json({ success: false, message: "Sesion invalida" });
+        return;
+      }
+
+      if (!(await isActiveProfileUser(userId))) {
+        res.status(401).json({ success: false, message: "Usuario no disponible" });
+        return;
+      }
     }
 
     const { authorizationUrl, flow } = OAuthService.generateAuthorization(provider);
@@ -75,10 +82,7 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
     res.redirect(302, authorizationUrl);
   } catch (error) {
     if (error instanceof ValidationError) {
-      res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-      });
+      res.status(error.statusCode).json({ success: false, message: error.message });
       return;
     }
 

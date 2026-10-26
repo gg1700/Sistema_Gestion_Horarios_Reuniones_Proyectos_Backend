@@ -5,7 +5,7 @@ import { encryptToken } from "../utils/token";
 import { ConflictError } from "../helpers/errors.helper";
 import type { OAuthProvider } from "../types/oauth.types";
 import type { OAuthProviderProfile, OAuthTokens } from "../types/oauth-callback.types";
-
+import { validatePublicHandle } from "../helpers/publicLink.helper";
 export interface OAuthUser {
   id: string;
   handle_name: string;
@@ -43,30 +43,40 @@ async function findUser(client: PoolClient, userId: string) {
   return rows[0] ?? null;
 }
 
+
 async function createUser(client: PoolClient, input: OAuthDecisionInput): Promise<OAuthUser> {
   const email = input.profile.email;
   if (!email) throw new ConflictError("additional_info_required");
 
   const { rows: existing } = await client.query(
-    `SELECT id FROM public."user" WHERE LOWER(email) = $1 AND deleted_at IS NULL`,
+    `SELECT id FROM public."user" WHERE LOWER(email) = $1`,
     [email]
   );
+
   if (existing.length) throw new ConflictError("email_conflict");
 
   for (let i = 0; i < 1000; i++) {
-    const handle = i === 0 ? input.handleBase : `${input.handleBase.slice(0, 45)}-${i}`;
+    const suffix = i === 0 ? "" : `-${i}`;
+    const handle = `${input.handleBase.slice(0, 50 - suffix.length)}${suffix}`;
+
+    if (!validatePublicHandle(handle).valid) continue;
 
     const { rows } = await client.query<OAuthUser>(
       `INSERT INTO public."user" (handle_name, name, first_surname, email, profile_picture)
-      SELECT $1::text, $2, $3, $4, $5
-      WHERE NOT EXISTS (
-        SELECT 1 FROM public."user" WHERE LOWER(handle_name) = $1::text
-      )
-      RETURNING id, handle_name`,
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT DO NOTHING
+       RETURNING id, handle_name`,
       [handle, input.name, input.firstSurname, email, input.profile.avatarUrl]
     );
 
     if (rows[0]) return rows[0];
+
+    const { rows: emailConflict } = await client.query(
+      `SELECT id FROM public."user" WHERE LOWER(email) = $1`,
+      [email]
+    );
+
+    if (emailConflict.length) throw new ConflictError("email_conflict");
   }
 
   throw new ConflictError("handle_unavailable");
@@ -149,10 +159,18 @@ export async function resolveAccount(input: OAuthDecisionInput): Promise<OAuthUs
       if (isNewUser) await saveInitialDetails(client, user.id, input);
       return user;
     });
-  } catch (error) {
-    if ((error as { code?: string }).code === "23505") {
-      throw new ConflictError("account_conflict");
+    } catch (error) {
+      const dbError = error as { code?: string; constraint?: string; table?: string };
+
+      if (dbError.code === "23505") {
+        console.error("OAuth unique constraint conflict:", {
+          table: dbError.table,
+          constraint: dbError.constraint,
+          code: dbError.code,
+        });
+        throw new ConflictError("account_conflict");
+      }
+
+      throw error;
     }
-    throw error;
-  }
 }

@@ -1,6 +1,6 @@
-
 import { resolveAccount } from "../repositories/oauth-decision.repository";
 import { createSession } from "./session.service";
+import { validateEmail, validateProperNoun } from "../validators/general.validator";
 import type { OAuthProvider } from "../types/oauth.types";
 import type { OAuthProviderProfile, OAuthTokens } from "../types/oauth-callback.types";
 
@@ -24,18 +24,32 @@ function normalizeHandle(value: string): string {
 
 function splitName(fullName: string | null) {
   const parts = (fullName ?? "").trim().split(/\s+/).filter(Boolean);
+  const rawName = parts[0] || "Usuario";
+  const rawSurname = parts.slice(1).join(" ") || "Pendiente";
+
+  const normalizeName = (value: string, fallback: string, field: string) => {
+    const normalized = value.replace(/[^\p{L}\p{M}\s'-]/gu, "").trim().slice(0, 100);
+    return validateProperNoun(normalized || fallback, field);
+  };
 
   return {
-    name: parts[0]?.slice(0, 100) || "Usuario",
-    firstSurname: parts.slice(1).join(" ").slice(0, 100) || "Pendiente",
+    name: normalizeName(rawName, "Usuario", "Nombre"),
+    firstSurname: normalizeName(rawSurname, "Pendiente", "Primer Apellido"),
   };
 }
-
 export async function resolveOAuthIdentity(input: OAuthDecisionInput) {
-  const email = input.profile.email?.trim().toLowerCase() ?? null;
+  const email = input.profile.email
+    ? validateEmail(input.profile.email, "Correo electronico")
+    : null;
+
   const profile = { ...input.profile, email };
   const { name, firstSurname } = splitName(profile.name);
-  const handleBase = normalizeHandle(profile.username ?? profile.name ?? `${input.provider}-${profile.id}`);
+
+  const handleSource = input.provider === "google"
+    ? profile.name ?? profile.email ?? `google-${profile.id}`
+    : profile.username ?? profile.name ?? `github-${profile.id}`;
+
+  const handleBase = normalizeHandle(handleSource);
 
   const user = await resolveAccount({
     ...input,

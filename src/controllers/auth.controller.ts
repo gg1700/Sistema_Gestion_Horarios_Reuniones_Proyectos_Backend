@@ -36,24 +36,37 @@ export async function registerUser(req: Request, res: Response) {
 export async function startAuthorization(req: Request, res: Response): Promise<void> {
   try {
     const provider = validateProvider(req.params.provider);
-    const authorization = req.headers.authorization;
-    const sessionToken = req.signedCookies?.session;
+    const intent = req.query.intent === undefined ? "login" : req.query.intent;
+
+    if (intent !== "login" && intent !== "link") {
+      res.status(400).json({ success: false, message: "Invalid OAuth intent" });
+      return;
+    }
+
     let userId: string | null = null;
 
-    if (authorization || sessionToken) {
-      const token = authorization?.startsWith("Bearer ")
+    if (intent === "link") {
+      const authorization = req.headers.authorization;
+      const cookieToken = req.signedCookies?.session;
+
+      if (cookieToken === false || (authorization && !authorization.startsWith("Bearer "))) {
+        res.status(401).json({ success: false, message: "Sesion invalida" });
+        return;
+      }
+
+      const token = authorization
         ? authorization.slice(7).trim()
-        : typeof sessionToken === "string" ? sessionToken : "";
+        : typeof cookieToken === "string" ? cookieToken : "";
 
       if (!token) {
-        res.status(401).json({ success: false, message: "Sesion invalida" });
+        res.status(401).json({ success: false, message: "Sesion requerida" });
         return;
       }
 
       try {
         userId = SessionService.verifySession(token).userId;
       } catch {
-        res.status(401).json({ success: false, message: "Sesion invalida" });
+        res.status(401).json({ success: false, message: "Sesion invalida o expirada" });
         return;
       }
 
@@ -65,7 +78,12 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
 
     const { authorizationUrl, flow } = OAuthService.generateAuthorization(provider);
 
-    res.cookie("oauth_flow", JSON.stringify({ ...flow, userId, issuedAt: Date.now() }), {
+    res.cookie("oauth_flow", JSON.stringify({
+      ...flow,
+      intent,
+      userId,
+      issuedAt: Date.now(),
+    }), {
       signed: true,
       httpOnly: true,
       secure: env.NODE_ENV === "production",

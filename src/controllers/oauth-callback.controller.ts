@@ -4,11 +4,14 @@ import { env } from "../config/env.config";
 import { validateProvider } from "../validators/oauth.validator";
 import { exchangeCode, getProviderProfile } from "../services/oauth-callback.service";
 import { resolveOAuthIdentity } from "../services/oauth-decision.service";
+import * as SessionService from "../services/session.service";
+import { isActiveProfileUser } from "../repositories/profile-read.repository";
 import { ConflictError } from "../helpers/errors.helper";
 import { OAuthCallbackError } from "../types/oauth-callback.types";
 import type { OAuthFlow } from "../types/oauth.types";
 
 interface StoredOAuthFlow extends OAuthFlow {
+  intent: "login" | "link";
   userId: string | null;
   issuedAt: number;
 }
@@ -36,7 +39,10 @@ function readFlow(value: unknown): StoredOAuthFlow | null {
     if (data.provider !== "google" && data.provider !== "github") return null;
     if (typeof data.state !== "string" || !data.state) return null;
     if (typeof data.codeVerifier !== "string" || !data.codeVerifier) return null;
-    if (data.userId !== null && (typeof data.userId !== "string" || !data.userId)) return null;
+    if (data.intent !== "login" && data.intent !== "link") return null;
+    if (!Object.prototype.hasOwnProperty.call(data, "userId")) return null;
+    if (data.intent === "login" && data.userId !== null) return null;
+    if (data.intent === "link" && (typeof data.userId !== "string" || !data.userId)) return null;
     if (typeof data.issuedAt !== "number" || !Number.isFinite(data.issuedAt)) return null;
 
     return data as unknown as StoredOAuthFlow;
@@ -88,6 +94,26 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
   }
 
   try {
+    if (flow.intent === "link") {
+      const authorization = req.headers.authorization;
+      const cookieToken = req.signedCookies?.session;
+      const token = authorization?.startsWith("Bearer ")
+        ? authorization.slice(7).trim()
+        : typeof cookieToken === "string" ? cookieToken : "";
+
+      try {
+        const sessionUserId = SessionService.verifySession(token).userId;
+
+        if (sessionUserId !== flow.userId || !(await isActiveProfileUser(sessionUserId))) {
+          redirectResult(res, "invalid_session");
+          return;
+        }
+      } catch {
+        redirectResult(res, "invalid_session");
+        return;
+      }
+    }
+
     const tokens = await exchangeCode(provider, code, flow.codeVerifier);
     const profile = await getProviderProfile(provider, tokens.accessToken);
 
@@ -119,7 +145,7 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    console.error("OAuth callback processing failed", error);
+    console.error("OAuth callback processing failed");
     redirectResult(res, "internal_error");
   }
 }

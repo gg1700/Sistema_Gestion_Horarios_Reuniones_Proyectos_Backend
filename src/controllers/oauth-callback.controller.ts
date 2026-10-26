@@ -1,3 +1,4 @@
+
 import type { Request, Response } from "express";
 import { timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.config";
@@ -97,9 +98,15 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
     if (flow.intent === "link") {
       const authorization = req.headers.authorization;
       const cookieToken = req.signedCookies?.session;
+
       const token = authorization?.startsWith("Bearer ")
         ? authorization.slice(7).trim()
         : typeof cookieToken === "string" ? cookieToken : "";
+
+      if (!token) {
+        redirectResult(res, "invalid_session");
+        return;
+      }
 
       try {
         const sessionUserId = SessionService.verifySession(token).userId;

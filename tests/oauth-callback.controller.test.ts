@@ -8,6 +8,8 @@ const mocks = vi.hoisted(() => ({
   exchangeCode: vi.fn(),
   getProviderProfile: vi.fn(),
   resolveOAuthIdentity: vi.fn(),
+  verifySession: vi.fn(),
+  isActiveProfileUser: vi.fn(),
 }));
 
 vi.mock("../src/services/oauth-callback.service", () => ({
@@ -19,12 +21,21 @@ vi.mock("../src/services/oauth-decision.service", () => ({
   resolveOAuthIdentity: mocks.resolveOAuthIdentity,
 }));
 
+vi.mock("../src/services/session.service", () => ({
+  verifySession: mocks.verifySession,
+}));
+
+vi.mock("../src/repositories/profile-read.repository", () => ({
+  isActiveProfileUser: mocks.isActiveProfileUser,
+}));
+
 import { oauthCallback } from "../src/controllers/oauth-callback.controller";
 
 const flow = {
   provider: "google",
   state: "test-state",
   codeVerifier: "test-verifier",
+  intent: "login" as "login" | "link",
   userId: null as string | null,
   issuedAt: Date.now(),
 };
@@ -38,8 +49,8 @@ const tokens = {
 
 const profile = {
   id: "google-123",
-  username: "user@gmail.com",
-  name: "Test",
+  username: "test-user",
+  name: "Test User",
   email: "user@gmail.com",
   avatarUrl: null,
   profileUrl: null,
@@ -49,12 +60,18 @@ function makeContext(options: {
   provider?: string;
   query?: Record<string, unknown>;
   cookie?: unknown;
+  session?: unknown;
+  authorization?: string;
 } = {}) {
   const req = {
     params: { provider: options.provider ?? "google" },
     query: options.query ?? { state: flow.state, code: "valid-code" },
+    headers: {
+      ...(options.authorization ? { authorization: options.authorization } : {}),
+    },
     signedCookies: {
       oauth_flow: options.cookie === undefined ? JSON.stringify(flow) : options.cookie,
+      session: options.session === undefined ? "test-session-token" : options.session,
     },
   } as unknown as Request;
 
@@ -81,17 +98,32 @@ function expectRedirect(res: Response, status: string) {
   );
 }
 
+function expectNoAuthentication(res: Response) {
+  expect(mocks.exchangeCode).not.toHaveBeenCalled();
+  expect(mocks.resolveOAuthIdentity).not.toHaveBeenCalled();
+  expect(res.cookie).not.toHaveBeenCalled();
+}
+
 beforeEach(() => {
   vi.resetAllMocks();
   flow.issuedAt = Date.now();
+  flow.intent = "login";
   flow.userId = null;
 
   mocks.exchangeCode.mockResolvedValue(tokens);
   mocks.getProviderProfile.mockResolvedValue(profile);
+
   mocks.resolveOAuthIdentity.mockResolvedValue({
     user: { id: "user-123", handle_name: "test-user" },
     session: { token: "test-jwt", expiresIn: "1d" },
   });
+
+  mocks.verifySession.mockReturnValue({
+    userId: "user-123",
+    handlename: "test-user",
+  });
+
+  mocks.isActiveProfileUser.mockResolvedValue(true);
 });
 
 describe("OAuth callback controller", () => {
@@ -104,12 +136,15 @@ describe("OAuth callback controller", () => {
     expectRedirect(res, "success");
     expect(mocks.exchangeCode).toHaveBeenCalledWith(provider, "valid-code", flow.codeVerifier);
     expect(mocks.getProviderProfile).toHaveBeenCalledWith(provider, tokens.accessToken);
+
     expect(mocks.resolveOAuthIdentity).toHaveBeenCalledWith({
       provider,
       profile,
       tokens,
       userId: null,
     });
+
+    expect(mocks.verifySession).not.toHaveBeenCalled();
 
     expect(res.cookie).toHaveBeenCalledWith(
       "session",
@@ -124,18 +159,98 @@ describe("OAuth callback controller", () => {
   });
 
   it("links an external account to an authenticated user", async () => {
-    const authenticatedFlow = { ...flow, userId: "user-123" };
+    const authenticatedFlow = { ...flow, intent: "link", userId: "user-123" };
     const { req, res } = makeContext({ cookie: JSON.stringify(authenticatedFlow) });
 
     await oauthCallback(req, res);
 
     expectRedirect(res, "success");
+    expect(mocks.verifySession).toHaveBeenCalledWith("test-session-token");
+    expect(mocks.isActiveProfileUser).toHaveBeenCalledWith("user-123");
+
     expect(mocks.resolveOAuthIdentity).toHaveBeenCalledWith({
       provider: "google",
       profile,
       tokens,
       userId: "user-123",
     });
+
+    expect(res.cookie).toHaveBeenCalledWith(
+      "session",
+      "test-jwt",
+      expect.objectContaining({ signed: true, httpOnly: true })
+    );
+  });
+
+  it("allows login without an existing session", async () => {
+    const { req, res } = makeContext({ session: null });
+
+    await oauthCallback(req, res);
+
+    expectRedirect(res, "success");
+    expect(mocks.verifySession).not.toHaveBeenCalled();
+    expect(mocks.resolveOAuthIdentity).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: null })
+    );
+  });
+
+  it("rejects linking without an active session", async () => {
+    const linkedFlow = { ...flow, intent: "link", userId: "user-123" };
+    const { req, res } = makeContext({
+      cookie: JSON.stringify(linkedFlow),
+      session: null,
+    });
+
+    mocks.verifySession.mockImplementation((token: string) => {
+      if (!token) throw new Error("Sesion requerida");
+      return { userId: "user-123", handlename: "test-user" };
+    });
+
+    await oauthCallback(req, res);
+
+    expectRedirect(res, "invalid_session");
+    expectNoAuthentication(res);
+  });
+
+  it("rejects linking with an expired session", async () => {
+    const linkedFlow = { ...flow, intent: "link", userId: "user-123" };
+    mocks.verifySession.mockImplementation(() => {
+      throw new Error("Session expired");
+    });
+
+    const { req, res } = makeContext({ cookie: JSON.stringify(linkedFlow) });
+
+    await oauthCallback(req, res);
+
+    expectRedirect(res, "invalid_session");
+    expectNoAuthentication(res);
+  });
+
+  it("rejects linking when the session belongs to another user", async () => {
+    const linkedFlow = { ...flow, intent: "link", userId: "user-123" };
+    mocks.verifySession.mockReturnValue({
+      userId: "other-user",
+      handlename: "other",
+    });
+
+    const { req, res } = makeContext({ cookie: JSON.stringify(linkedFlow) });
+
+    await oauthCallback(req, res);
+
+    expectRedirect(res, "invalid_session");
+    expectNoAuthentication(res);
+  });
+
+  it("rejects linking when the user is inactive", async () => {
+    const linkedFlow = { ...flow, intent: "link", userId: "user-123" };
+    mocks.isActiveProfileUser.mockResolvedValue(false);
+
+    const { req, res } = makeContext({ cookie: JSON.stringify(linkedFlow) });
+
+    await oauthCallback(req, res);
+
+    expectRedirect(res, "invalid_session");
+    expectNoAuthentication(res);
   });
 
   it("rejects an unsupported provider", async () => {
@@ -144,9 +259,7 @@ describe("OAuth callback controller", () => {
     await oauthCallback(req, res);
 
     expectRedirect(res, "invalid_provider");
-    expect(mocks.exchangeCode).not.toHaveBeenCalled();
-    expect(mocks.resolveOAuthIdentity).not.toHaveBeenCalled();
-    expect(res.cookie).not.toHaveBeenCalled();
+    expectNoAuthentication(res);
   });
 
   it("handles user denial", async () => {
@@ -155,8 +268,7 @@ describe("OAuth callback controller", () => {
     await oauthCallback(req, res);
 
     expectRedirect(res, "access_denied");
-    expect(mocks.resolveOAuthIdentity).not.toHaveBeenCalled();
-    expect(res.cookie).not.toHaveBeenCalled();
+    expectNoAuthentication(res);
   });
 
   it.each([
@@ -167,15 +279,17 @@ describe("OAuth callback controller", () => {
     ["future flow", JSON.stringify({ ...flow, issuedAt: Date.now() + 60000 })],
     ["different provider", JSON.stringify({ ...flow, provider: "github" })],
     ["invalid userId", JSON.stringify({ ...flow, userId: 123 })],
+    ["missing intent", JSON.stringify((({ intent, ...rest }) => rest)(flow))],
+    ["invalid intent", JSON.stringify({ ...flow, intent: "invalid" })],
+    ["login with userId", JSON.stringify({ ...flow, intent: "login", userId: "user-123" })],
+    ["link without userId", JSON.stringify({ ...flow, intent: "link", userId: null })],
   ])("rejects %s", async (_label, cookie) => {
     const { req, res } = makeContext({ cookie });
 
     await oauthCallback(req, res);
 
     expectRedirect(res, "invalid_state");
-    expect(mocks.exchangeCode).not.toHaveBeenCalled();
-    expect(mocks.resolveOAuthIdentity).not.toHaveBeenCalled();
-    expect(res.cookie).not.toHaveBeenCalled();
+    expectNoAuthentication(res);
   });
 
   it("rejects a mismatched state", async () => {
@@ -186,8 +300,7 @@ describe("OAuth callback controller", () => {
     await oauthCallback(req, res);
 
     expectRedirect(res, "invalid_state");
-    expect(mocks.exchangeCode).not.toHaveBeenCalled();
-    expect(mocks.resolveOAuthIdentity).not.toHaveBeenCalled();
+    expectNoAuthentication(res);
   });
 
   it("rejects an absent authorization code", async () => {
@@ -196,8 +309,7 @@ describe("OAuth callback controller", () => {
     await oauthCallback(req, res);
 
     expectRedirect(res, "invalid_code");
-    expect(mocks.resolveOAuthIdentity).not.toHaveBeenCalled();
-    expect(res.cookie).not.toHaveBeenCalled();
+    expectNoAuthentication(res);
   });
 
   it("redirects when the authorization code is rejected", async () => {
@@ -222,33 +334,17 @@ describe("OAuth callback controller", () => {
     expect(res.cookie).not.toHaveBeenCalled();
   });
 
-  it("handles account conflicts", async () => {
-    mocks.resolveOAuthIdentity.mockRejectedValue(new ConflictError("account_conflict"));
+  it.each([
+    ["account_conflict", "account_conflict"],
+    ["email_conflict", "email_conflict"],
+    ["additional_info_required", "additional_info_required"],
+  ])("handles %s", async (errorCode, expected) => {
+    mocks.resolveOAuthIdentity.mockRejectedValue(new ConflictError(errorCode));
     const { req, res } = makeContext();
 
     await oauthCallback(req, res);
 
-    expectRedirect(res, "account_conflict");
-    expect(res.cookie).not.toHaveBeenCalled();
-  });
-
-  it("handles email conflicts", async () => {
-    mocks.resolveOAuthIdentity.mockRejectedValue(new ConflictError("email_conflict"));
-    const { req, res } = makeContext();
-
-    await oauthCallback(req, res);
-
-    expectRedirect(res, "email_conflict");
-    expect(res.cookie).not.toHaveBeenCalled();
-  });
-
-  it("handles missing provider information", async () => {
-    mocks.resolveOAuthIdentity.mockRejectedValue(new ConflictError("additional_info_required"));
-    const { req, res } = makeContext();
-
-    await oauthCallback(req, res);
-
-    expectRedirect(res, "additional_info_required");
+    expectRedirect(res, expected);
     expect(res.cookie).not.toHaveBeenCalled();
   });
 

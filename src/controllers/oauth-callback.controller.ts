@@ -3,12 +3,13 @@ import { timingSafeEqual } from "node:crypto";
 import { env } from "../config/env.config";
 import { validateProvider } from "../validators/oauth.validator";
 import { exchangeCode, getProviderProfile } from "../services/oauth-callback.service";
-import { saveExternalAccount } from "../repositories/oauth-callback.repository";
+import { resolveOAuthIdentity } from "../services/oauth-decision.service";
+import { ConflictError } from "../helpers/errors.helper";
 import { OAuthCallbackError } from "../types/oauth-callback.types";
 import type { OAuthFlow } from "../types/oauth.types";
 
 interface StoredOAuthFlow extends OAuthFlow {
-  userId: string;
+  userId: string | null;
   issuedAt: number;
 }
 
@@ -35,7 +36,7 @@ function readFlow(value: unknown): StoredOAuthFlow | null {
     if (data.provider !== "google" && data.provider !== "github") return null;
     if (typeof data.state !== "string" || !data.state) return null;
     if (typeof data.codeVerifier !== "string" || !data.codeVerifier) return null;
-    if (typeof data.userId !== "string" || !data.userId) return null;
+    if (data.userId !== null && (typeof data.userId !== "string" || !data.userId)) return null;
     if (typeof data.issuedAt !== "number" || !Number.isFinite(data.issuedAt)) return null;
 
     return data as unknown as StoredOAuthFlow;
@@ -89,7 +90,23 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
   try {
     const tokens = await exchangeCode(provider, code, flow.codeVerifier);
     const profile = await getProviderProfile(provider, tokens.accessToken);
-    await saveExternalAccount({ userId: flow.userId, provider, profile, tokens });
+
+    const { session } = await resolveOAuthIdentity({
+      provider,
+      profile,
+      tokens,
+      userId: flow.userId,
+    });
+
+    res.cookie("session", session.token, {
+      signed: true,
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 24 * 60 * 60 * 1000,
+    });
+
     redirectResult(res, "success");
   } catch (error) {
     if (error instanceof OAuthCallbackError) {
@@ -97,12 +114,12 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    if (error instanceof Error && error.name === "ConflictError") {
-      redirectResult(res, "account_conflict");
+    if (error instanceof ConflictError) {
+      redirectResult(res, error.message);
       return;
     }
 
-    console.error("OAuth callback processing failed");
+    console.error("OAuth callback processing failed", error);
     redirectResult(res, "internal_error");
   }
 }

@@ -3,22 +3,30 @@ import * as SessionService from "../services/session.service";
 import { isActiveProfileUser } from "../repositories/profile-read.repository";
 
 export function verifySession(req: Request, res: Response, next: NextFunction) {
-  const authorizationHeader = req.headers.authorization;
-  if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-    return res.status(401).json({
-      success: false,
-      message: "Sesion no proporcionada"
-    });
+  const authorization = req.headers.authorization;
+  const cookieToken = req.signedCookies?.session;
+
+  if (cookieToken === false) {
+    return res.status(401).json({ success: false, message: "Sesion invalida" });
   }
+
+  if (authorization && !authorization.startsWith("Bearer ")) {
+    return res.status(401).json({ success: false, message: "Autorizacion invalida" });
+  }
+
+  const token = authorization
+    ? authorization.slice(7).trim()
+    : typeof cookieToken === "string" ? cookieToken : "";
+
+  if (!token) {
+    return res.status(401).json({ success: false, message: "Sesion no proporcionada" });
+  }
+
   try {
-    const token = authorizationHeader.slice("Bearer ".length).trim();
     req.user = SessionService.verifySession(token);
     next();
-  } catch (error) {
-    return res.status(401).json({
-      success: false,
-      message: (error as Error).message
-    });
+  } catch {
+    return res.status(401).json({ success: false, message: "Sesion invalida o expirada" });
   }
 }
 

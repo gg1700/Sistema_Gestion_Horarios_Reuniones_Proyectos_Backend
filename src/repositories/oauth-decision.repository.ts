@@ -58,11 +58,11 @@ async function createUser(client: PoolClient, input: OAuthDecisionInput): Promis
 
     const { rows } = await client.query<OAuthUser>(
       `INSERT INTO public."user" (handle_name, name, first_surname, email, profile_picture)
-       SELECT $1, $2, $3, $4, $5
-       WHERE NOT EXISTS (
-         SELECT 1 FROM public."user" WHERE LOWER(handle_name) = $1
-       )
-       RETURNING id, handle_name`,
+      SELECT $1::text, $2, $3, $4, $5
+      WHERE NOT EXISTS (
+        SELECT 1 FROM public."user" WHERE LOWER(handle_name) = $1::text
+      )
+      RETURNING id, handle_name`,
       [handle, input.name, input.firstSurname, email, input.profile.avatarUrl]
     );
 

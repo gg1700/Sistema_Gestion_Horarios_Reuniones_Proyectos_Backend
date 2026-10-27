@@ -7,7 +7,10 @@ import { env } from "./env.config";
 
 export const app: Application = express();
 
-app.use(cors());
+app.use(cors({
+  origin: new URL(env.FRONTEND_OAUTH_CALLBACK_URL).origin,
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

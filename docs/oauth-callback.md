@@ -27,7 +27,8 @@ FROM public.external_account;
 Esta es una de las pruebas más importantes.
 Primero, inicia sesión con Google y no borres las cookies.
 Después abre:
-Vincular GitHub a la sesión actualAutoriza GitHub. http://localhost:3000/api/v1/auth/github
+Vincular GitHub a la sesión actualAutoriza GitHub. 
+para vincular usar http://localhost:3000/api/v1/auth/github?intent=link
 
 Resultado esperado:
 http://localhost:5173/?oauth=success
@@ -37,7 +38,7 @@ FROM public.external_account
 ORDER BY user_id, provider;
 ```
 
-## 2. Endpoints
+## 3. Endpoints
 
 | Método | Endpoint | Función |
 |---|---|---|
@@ -50,7 +51,7 @@ ORDER BY user_id, provider;
 
 `intent` admite `login` (valor predeterminado) y `link`.
 
-## 3. Respuestas del endpoint de autorización
+## 4. Respuestas del endpoint de autorización
 
 **GET `/api/v1/auth/:provider`**
 
@@ -65,7 +66,7 @@ ORDER BY user_id, provider;
 
 En `mode=json`, el frontend debe conservar las cookies del flujo OAuth2.
 
-## 4. Respuestas del callback
+## 5. Respuestas del callback
 
 **GET `/api/v1/auth/:provider/callback`**
 
@@ -92,7 +93,7 @@ Ejemplo:
 
 Estos códigos representan los resultados implementados en el callback y los conflictos que puede emitir la lógica de decisión.
 
-## 5. Sesiones y cookies
+## 6. Sesiones y cookies
 
 En una autenticación exitosa, el backend establece una cookie:
 
@@ -119,7 +120,7 @@ const result = await response.json();
 
 El navegador y el backend deben estar configurados para permitir el envío de cookies entre sus respectivos orígenes.
 
-## 6. Respuesta del perfil
+## 7. Respuesta del perfil
 
 Después de `oauth=success`, el frontend puede consultar `GET /api/v1/profile`.
 
@@ -144,7 +145,7 @@ Se omiten otras propiedades de información adicional del perfil para simplifica
 
 Si `requiresProfileCompletion` es `true`, el frontend debe permitir corregir los datos provisionales.
 
-## 7. Reglas de creación y vinculación
+## 8. Reglas de creación y vinculación
 
 - Si la identidad externa ya existe, se recupera al usuario correspondiente.
 - Si se inicia una vinculación, se verifica la sesión existente y la pertenencia de la identidad.

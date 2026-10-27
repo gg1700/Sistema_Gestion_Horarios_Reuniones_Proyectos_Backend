@@ -36,11 +36,18 @@ Para GitHub se deben realizar los siguientes pasos:
 5. Copia el **Client ID** y pégalo en tu archivo .env como GITHUB_CLIENT_ID.
 6. Haz clic en **Generate a new client secret**, cópialo inmediatamente y pégalo como GITHUB_CLIENT_SECRET.
 
+### 4. Clave de Encriptacion de Tokens
+Para generar una clave para el cifrado y descifrado de tokens sigue los siguientes pasos:
+1. Abre la teminal
+2. Escribe el comando: `openssl rand -base64 32` o `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"`
+3. Pulsa ENTER
+4. Copia la cadena generada
+5. Pega la cadena generada en la variable de entorno ENCRYPTION_KEY en el archivo .env.
 
-### 4.Google Calendar API y permisos OAuth2
+### 5.Google Calendar API y permisos OAuth2
 En este apartado se indica las configuraciones y permisos para habilitar la API de google calendar.
 
-##### Habilitar Google Calendar API
+#### Habilitar Google Calendar API
 1. En [Google Cloud Console](https://console.cloud.google.com/), selecciona el proyecto de OAuth2 utilizado por el backend.
 2. Accede a **APIs y servicios → Biblioteca**.
 3. Busca **Google Calendar API** y selecciona **Habilitar** (si aparece **Administrar**, ya está habilitada).

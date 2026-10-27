@@ -31,15 +31,9 @@ export async function modifyPersonalInfo(req: Request, res: Response) {
         message: "Infomacion a modificar no especificada",
       });
     }
-
-    const { result, statusCode, message } = await ProfileService.modifyPersonalInfo(
-      userId,
-      req.body,
-      req.file
-    );
-    if (!result) {
-      return res.status(statusCode).json({ success: result, message: message });
-    }
+    
+    const { result, statusCode, message } = await ProfileService.modifyPersonalInfo(userId, req.body, req.file);
+    if (!result) return res.status(statusCode).json({ success: result, message: message });
     return res.status(200).json({
       success: true,
       message: "Informacion personal modificada correctamente",
@@ -67,14 +61,8 @@ export async function modifyWorkExperience(req: Request, res: Response) {
       });
     }
 
-    const { result, statusCode, message } = await ProfileService.modifyWorkExperience(
-      validatedId,
-      validatedUserId,
-      req.body
-    );
-    if (!result) {
-      return res.status(statusCode).json({ success: result, message: message });
-    }
+    const { result, statusCode, message } = await ProfileService.modifyWorkExperience(validatedId, validatedUserId, req.body);
+    if (!result) return res.status(statusCode).json({ success: result, message: message });
     return res.status(200).json({
       success: true,
       message: "Informacion personal modificada correctamente",

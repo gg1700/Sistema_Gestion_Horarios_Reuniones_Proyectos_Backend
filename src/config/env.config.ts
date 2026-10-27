@@ -28,5 +28,5 @@ export const env = {
   CLOUDINARY_API_SECRET: verifyEnvVariables("CLOUDINARY_API_SECRET", undefined),
   JWT_SECRET: verifyEnvVariables("JWT_SECRET", undefined),
   JWT_EXPIRES_IN: verifyEnvVariables("JWT_EXPIRES_IN", "1d"),
-  ENCRYPTION_KEY: process.env.ENCRYPTION_KEY,
+  ENCRYPTION_KEY: verifyEnvVariables("ENCRYPTION_KEY", undefined),
 };

@@ -43,7 +43,6 @@ async function findUser(client: PoolClient, userId: string) {
   return rows[0] ?? null;
 }
 
-
 async function createUser(client: PoolClient, input: OAuthDecisionInput): Promise<OAuthUser> {
   const email = input.profile.email;
   if (!email) throw new ConflictError("additional_info_required");
@@ -62,7 +61,8 @@ async function createUser(client: PoolClient, input: OAuthDecisionInput): Promis
     if (!validatePublicHandle(handle).valid) continue;
 
     const { rows } = await client.query<OAuthUser>(
-      `INSERT INTO public."user" (handle_name, name, first_surname, email, profile_picture)
+      `INSERT INTO public."user"
+       (handle_name, name, first_surname, email, profile_picture)
        VALUES ($1, $2, $3, $4, $5)
        ON CONFLICT DO NOTHING
        RETURNING id, handle_name`,
@@ -76,7 +76,9 @@ async function createUser(client: PoolClient, input: OAuthDecisionInput): Promis
       [email]
     );
 
-    if (emailConflict.length) throw new ConflictError("email_conflict");
+    if (emailConflict.length) {
+      throw new ConflictError("email_conflict");
+    }
   }
 
   throw new ConflictError("handle_unavailable");

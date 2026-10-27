@@ -46,32 +46,31 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
     let userId: string | null = null;
 
     if (intent === "link") {
-      const authorization = req.headers.authorization;
-      const cookieToken = req.signedCookies?.session;
+      const token = req.signedCookies?.session;
 
-      if (cookieToken === false || (authorization && !authorization.startsWith("Bearer "))) {
-        res.status(401).json({ success: false, message: "Sesion invalida" });
-        return;
-      }
-
-      const token = authorization
-        ? authorization.slice(7).trim()
-        : typeof cookieToken === "string" ? cookieToken : "";
-
-      if (!token) {
-        res.status(401).json({ success: false, message: "Sesion requerida" });
+      if (typeof token !== "string" || !token) {
+        res.status(401).json({
+          success: false,
+          message: "Sesion requerida",
+        });
         return;
       }
 
       try {
         userId = SessionService.verifySession(token).userId;
       } catch {
-        res.status(401).json({ success: false, message: "Sesion invalida o expirada" });
+        res.status(401).json({
+          success: false,
+          message: "Sesion invalida o expirada",
+        });
         return;
       }
 
       if (!(await isActiveProfileUser(userId))) {
-        res.status(401).json({ success: false, message: "Usuario no disponible" });
+        res.status(401).json({
+          success: false,
+          message: "Usuario no disponible",
+        });
         return;
       }
     }

@@ -96,14 +96,9 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
 
   try {
     if (flow.intent === "link") {
-      const authorization = req.headers.authorization;
-      const cookieToken = req.signedCookies?.session;
+      const token = req.signedCookies?.session;
 
-      const token = authorization?.startsWith("Bearer ")
-        ? authorization.slice(7).trim()
-        : typeof cookieToken === "string" ? cookieToken : "";
-
-      if (!token) {
+      if (typeof token !== "string" || !token) {
         redirectResult(res, "invalid_session");
         return;
       }
@@ -111,7 +106,10 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       try {
         const sessionUserId = SessionService.verifySession(token).userId;
 
-        if (sessionUserId !== flow.userId || !(await isActiveProfileUser(sessionUserId))) {
+        if (
+          sessionUserId !== flow.userId ||
+          !(await isActiveProfileUser(sessionUserId))
+        ) {
           redirectResult(res, "invalid_session");
           return;
         }

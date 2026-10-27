@@ -95,9 +95,23 @@ async function fillProfile() {
   await pool.query(`INSERT INTO public.user_country (user_id, country_id) SELECT $1, id FROM public.country WHERE code = '591'`, [userId]);
   await pool.query(`INSERT INTO public.workexperience (user_id, title, start_date) VALUES ($1, 'Trabajo', '2024-01-01')`, [userId]);
   await pool.query(`INSERT INTO public.link (user_id, text, url) VALUES ($1, 'Personal', 'https://example.com')`, [userId]);
-  await pool.query(`INSERT INTO public.external_account (user_id, provider, access_token, refresh_token)
-    VALUES ($1, 'google', $2, $3), ($1, 'github', $4, NULL)`,
-  [userId, encryptToken("google-secret"), encryptToken("refresh-secret"), encryptToken("github-secret")]);
+  
+  await pool.query(
+    `INSERT INTO public.external_account
+      (user_id, provider, provider_user_id, access_token, refresh_token)
+    VALUES
+      ($1, 'google', $2, $3, $4),
+      ($1, 'github', $5, $6, NULL)`,
+    [
+      userId,
+      `google-${userId}`,
+      encryptToken("google-secret"),
+      encryptToken("refresh-secret"),
+      `github-${userId}`,
+      encryptToken("github-secret"),
+    ]
+  );
+
   await pool.query(`INSERT INTO public.test_delete_section (user_id, personal_data) VALUES ($1, 'Cache privada')`, [userId]);
 }
 
@@ -187,8 +201,18 @@ describe("DELETE /api/v1/profile", () => {
   });
 
   it("prevents a concurrent profile write from recreating personal data after deletion", async () => {
-    await pool.query(`INSERT INTO public.external_account (user_id, provider, access_token)
-      VALUES ($1, 'google', $2)`, [userId, encryptToken("concurrent-secret")]);
+    
+    await pool.query(
+      `INSERT INTO public.external_account
+        (user_id, provider, provider_user_id, access_token)
+      VALUES ($1, 'google', $2, $3)`,
+      [
+        userId,
+        `google-${userId}`,
+        encryptToken("concurrent-secret"),
+      ]
+    );
+
     let releaseProvider!: () => void;
     let signalRevocation!: () => void;
     let signalWrite!: () => void;

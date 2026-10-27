@@ -2,26 +2,44 @@ import { createHash, randomBytes } from "node:crypto";
 import { oauthConfig } from "../config/oauth.config";
 import { AuthorizationStart, OAuthProvider } from "../types/oauth.types";
 
-export function generateAuthorization(provider: OAuthProvider): AuthorizationStart {
+interface AuthorizationOptions {
+  redirectUri?: string;
+  scopes?: readonly string[];
+  prompt?: string;
+}
+
+export function generateAuthorization(
+  provider: OAuthProvider,
+  options: AuthorizationOptions = {}
+): AuthorizationStart {
   const configuration = oauthConfig[provider];
+
   const state = randomBytes(32).toString("base64url");
   const codeVerifier = randomBytes(32).toString("base64url");
+
   const codeChallenge = createHash("sha256")
     .update(codeVerifier, "ascii")
     .digest("base64url");
 
   const url = new URL(configuration.authorizationEndpoint);
+
   url.searchParams.set("client_id", configuration.clientId);
-  url.searchParams.set("redirect_uri", configuration.redirectUri);
+  url.searchParams.set(
+    "redirect_uri",
+    options.redirectUri ?? configuration.redirectUri
+  );
   url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", configuration.scopes.join(" "));
+  url.searchParams.set(
+    "scope",
+    (options.scopes ?? configuration.scopes).join(" ")
+  );
   url.searchParams.set("state", state);
   url.searchParams.set("code_challenge", codeChallenge);
   url.searchParams.set("code_challenge_method", "S256");
 
   if (provider === "google") {
     url.searchParams.set("access_type", "offline");
-    url.searchParams.set("prompt", "select_account");
+    url.searchParams.set("prompt", options.prompt ?? "select_account");
   }
 
   return {

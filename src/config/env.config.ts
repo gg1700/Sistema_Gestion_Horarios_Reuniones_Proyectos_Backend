@@ -18,6 +18,7 @@ export const env = {
   GOOGLE_CLIENT_ID: verifyEnvVariables("GOOGLE_CLIENT_ID", undefined),
   GOOGLE_CLIENT_SECRET: verifyEnvVariables("GOOGLE_CLIENT_SECRET", undefined),
   GOOGLE_REDIRECT_URI: verifyEnvVariables("GOOGLE_REDIRECT_URI", undefined),
+  GOOGLE_CALENDAR_REDIRECT_URI: verifyEnvVariables("GOOGLE_CALENDAR_REDIRECT_URI",undefined),
   GITHUB_CLIENT_ID: verifyEnvVariables("GITHUB_CLIENT_ID", undefined),
   GITHUB_CLIENT_SECRET: verifyEnvVariables("GITHUB_CLIENT_SECRET", undefined),
   GITHUB_REDIRECT_URI: verifyEnvVariables("GITHUB_REDIRECT_URI", undefined),

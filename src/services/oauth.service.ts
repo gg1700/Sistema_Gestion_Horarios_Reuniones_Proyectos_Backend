@@ -21,7 +21,7 @@ export function generateAuthorization(provider: OAuthProvider): AuthorizationSta
 
   if (provider === "google") {
     url.searchParams.set("access_type", "offline");
-    url.searchParams.set("prompt", "consent");
+    url.searchParams.set("prompt", "select_account");
   }
 
   return {

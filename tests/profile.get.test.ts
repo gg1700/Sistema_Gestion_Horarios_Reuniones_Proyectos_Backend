@@ -129,8 +129,45 @@ describe("GET /api/v1/profile", () => {
         countries: [],
         workExperiences: [],
         links: [],
+        requiresProfileCompletion: false,
       },
     });
+  });
+
+  it.each([
+    ["Usuario", "Perez"],
+    ["Ana", "Pendiente"],
+    ["Usuario", "Pendiente"],
+  ])("requires profile completion for provisional names (%s, %s)", async (name, firstSurname) => {
+    await pool.query(
+      `UPDATE public."user" SET name = $1, first_surname = $2 WHERE id = $3`,
+      [name, firstSurname, userId]
+    );
+
+    const response = await request(app).get(route).set("Authorization", authorization);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.name).toBe(name);
+    expect(response.body.data.firstSurname).toBe(firstSurname);
+    expect(response.body.data.requiresProfileCompletion).toBe(true);
+  });
+
+  it("does not require completion after provisional names are corrected", async () => {
+    await pool.query(
+      `UPDATE public."user" SET name = 'Usuario', first_surname = 'Pendiente' WHERE id = $1`,
+      [userId]
+    );
+    await pool.query(
+      `UPDATE public."user" SET name = 'Jessica', first_surname = 'Quispe' WHERE id = $1`,
+      [userId]
+    );
+
+    const response = await request(app).get(route).set("Authorization", authorization);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.name).toBe("Jessica");
+    expect(response.body.data.firstSurname).toBe("Quispe");
+    expect(response.body.data.requiresProfileCompletion).toBe(false);
   });
 
   it("rejects a soft-deleted user even with an unexpired token", async () => {
@@ -161,6 +198,7 @@ describe("GET /api/v1/profile", () => {
     const profile = response.body.data as Profile;
     expect(profile.surname).toEqual({ surname: "Lopez", visible: false });
     expect(profile.profilePicture).toBe("https://example.com/avatar.png");
+    expect(profile.requiresProfileCompletion).toBe(false);
     expect(profile.phones).toEqual([
       {
         id: expect.any(String),
@@ -224,6 +262,7 @@ describe("GET /api/v1/profile", () => {
         "firstSurname",
         "email",
         "profilePicture",
+        "requiresProfileCompletion",
         "surname",
         "phones",
         "contactEmails",

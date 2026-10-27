@@ -79,29 +79,53 @@ export async function revokeAccessAccount(req: Request, res: Response) {
 export async function startAuthorization(req: Request, res: Response): Promise<void> {
   try {
     const provider = validateProvider(req.params.provider);
-    const authorization = req.headers.authorization;
+    const intent = req.query.intent === undefined ? "login" : req.query.intent;
 
-    if (!authorization?.startsWith("Bearer ")) {
-      res.status(401).json({ success: false, message: "Sesion requerida" });
-      return;
-    }
-    let userId: string;
-
-    try {
-      userId = SessionService.verifySession(authorization.slice(7).trim()).userId;
-    } catch {
-      res.status(401).json({ success: false, message: "Sesion invalida" });
+    if (intent !== "login" && intent !== "link") {
+      res.status(400).json({ success: false, message: "Invalid OAuth intent" });
       return;
     }
 
-    if (!(await isActiveProfileUser(userId))) {
-      res.status(401).json({ success: false, message: "Usuario no disponible" });
-      return;
+    let userId: string | null = null;
+
+    if (intent === "link") {
+      const token = req.signedCookies?.session;
+
+      if (typeof token !== "string" || !token) {
+        res.status(401).json({
+          success: false,
+          message: "Sesion requerida",
+        });
+        return;
+      }
+
+      try {
+        userId = SessionService.verifySession(token).userId;
+      } catch {
+        res.status(401).json({
+          success: false,
+          message: "Sesion invalida o expirada",
+        });
+        return;
+      }
+
+      if (!(await isActiveProfileUser(userId))) {
+        res.status(401).json({
+          success: false,
+          message: "Usuario no disponible",
+        });
+        return;
+      }
     }
 
     const { authorizationUrl, flow } = OAuthService.generateAuthorization(provider);
 
-    res.cookie("oauth_flow", JSON.stringify({ ...flow, userId, issuedAt: Date.now() }), {
+    res.cookie("oauth_flow", JSON.stringify({
+      ...flow,
+      intent,
+      userId,
+      issuedAt: Date.now(),
+    }), {
       signed: true,
       httpOnly: true,
       secure: env.NODE_ENV === "production",
@@ -118,10 +142,7 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
     res.redirect(302, authorizationUrl);
   } catch (error) {
     if (error instanceof ValidationError) {
-      res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-      });
+      res.status(error.statusCode).json({ success: false, message: error.message });
       return;
     }
 

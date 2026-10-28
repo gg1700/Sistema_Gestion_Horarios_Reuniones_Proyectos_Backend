@@ -4,7 +4,6 @@ import * as AuthTypes from "../types/auth.types";
 import { decryptToken } from "../utils/token";
 import * as ExternalAccountTypes from "../types/external-account.types";
 import * as GithubAPIService from "./github-api.service";
-import { Octokit } from "octokit";
 import * as GithubRepo from "../repositories/github.repository";
 
 export async function requestGithubActivity(userId: string, type: "list" | "grid") {
@@ -23,6 +22,7 @@ export async function requestGithubActivity(userId: string, type: "list" | "grid
 
     const accessToken = decryptToken(githubAccount[0].access_token);
     const username = githubAccount[0].provider_username;
+    const { Octokit } = await import("octokit");
     const octokit = new Octokit({ auth: accessToken });
     const ans = (type === "list")
       ? await GithubAPIService.getGithubActivityList(octokit, username)

@@ -1,4 +1,4 @@
-import { Octokit } from "octokit";
+import type { Octokit } from "octokit";
 import * as ArrayConstants from "../utils/constants/array.constants";
 import * as GithubTypes from "../types/github.types";
 

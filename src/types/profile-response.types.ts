@@ -61,6 +61,7 @@ export interface Profile {
   countries: ProfileCountry[];
   workExperiences: ProfileWorkExperience[];
   links: ProfileLink[];
+  requiresProfileCompletion: boolean;
 }
 
 export type ProfileResponse =

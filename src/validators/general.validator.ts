@@ -1,5 +1,6 @@
 import { ValidationError } from "../helpers/errors.helper";
 import { capitalize, collapseSpaces } from "../utils/normalize";
+import * as AuthTypes from "../types/auth.types";
 import * as RegexConstants from "../utils/constants/regex.constants";
 import { phoneDigitsByCountryCode } from "../utils/constants/phone.constants";
 
@@ -29,9 +30,7 @@ export function validateVisibility(value: unknown) {
 }
 
 export function validateId(id: unknown) {
-  if (!id || typeof id !== "string") {
-    throw new ValidationError("Id invalido");
-  }
+  if (!id || typeof id !== "string") throw new ValidationError("Id invalido");
   return id;
 }
 
@@ -41,6 +40,14 @@ export function validateDate(value: unknown, field: string) {
     throw new ValidationError(`${field}: fecha invalida`);
   }
   return formatedValue;
+}
+
+export function validateExternalProvider(value: unknown) {
+  if (!value || typeof value !== "string") throw new ValidationError("Valor de proveedor invalido");
+  if (!Object.values(AuthTypes.ExternalProvider).includes(value as AuthTypes.ExternalProvider)) {
+    throw new ValidationError("Proveedor invalido");
+  }
+  return value;
 }
 
 export function validateObject(value: unknown, field: string) {

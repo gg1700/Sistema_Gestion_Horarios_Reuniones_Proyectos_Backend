@@ -7,8 +7,9 @@ export const visibilityTypes = [
   "country",
   "workExperience",
   "link",
-  "repositories",
-  "githubActivity"
+  "repository",
+  "githubActivityList",
+  "githubActivityGrid"
 ] as const;
 
 export type VisibilityType = typeof visibilityTypes[number];

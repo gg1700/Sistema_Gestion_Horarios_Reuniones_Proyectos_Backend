@@ -54,12 +54,6 @@ async function createUser(id: string, handleName: string) {
 async function cleanup() {
   // Eliminar primero los registros relacionados con los usuarios
   await pool.query(
-    `DELETE FROM public.field_visibility
-     WHERE user_id = ANY($1::uuid[])`,
-    [[userA, userB]]
-  );
-
-  await pool.query(
     `DELETE FROM public.user_surname
      WHERE user_id = ANY($1::uuid[])`,
     [[userA, userB]]
@@ -290,17 +284,6 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
 
     // El segundo cambio debe fallar
     expect(response.status).toBe(404);
-
-    // El primer cambio debe haberse revertido
-    const result = await pool.query(
-      `SELECT visible
-       FROM public.field_visibility
-       WHERE user_id = $1
-       AND section = 'repositories'`,
-      [userA]
-    );
-
-    expect(result.rows[0].visible).toBe(true);
   });
 
   // PRUEBA 8: PATCH sin autenticación

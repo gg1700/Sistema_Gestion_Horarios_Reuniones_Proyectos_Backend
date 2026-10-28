@@ -1,24 +1,35 @@
-import { createCipheriv, createDecipheriv, randomBytes, CipherGCM, DecipherGCM } from "node:crypto";
+import { createCipheriv, randomBytes, CipherGCM, createDecipheriv, DecipherGCM } from "node:crypto";
 import { crypto } from "../config/crypto.config";
 
-export function encryptToken(token: string): string {
+export function encryptToken(token: string) {
   const iv = randomBytes(crypto.ivLength);
   const cipher = createCipheriv(crypto.algorithm, crypto.key, iv) as CipherGCM;
-  const encrypted = Buffer.concat([cipher.update(token, "utf8"), cipher.final()]);
-  return [crypto.version, iv.toString("base64"), cipher.getAuthTag().toString("base64"), encrypted.toString("base64")].join(":");
+  const encryptedToken = Buffer.concat([cipher.update(token, "utf-8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return [
+    crypto.version,
+    iv.toString("base64"),
+    tag.toString("base64"),
+    encryptedToken.toString("base64")
+  ].join(":");
 }
 
-export function decryptToken(token: string): string {
-  const [version, iv64, tag64, data64, extra] = token.split(":");
-  if (version !== crypto.version || !iv64 || !tag64 || !data64 || extra !== undefined) {
+export function decryptToken(token: string) {
+  const encryptedParts = token.split(":");
+  if (encryptedParts.length !== 4 || encryptedParts[0] !== crypto.version)
     throw new Error("Formato de token invalido");
+  const [ , iv64, tag64, token64 ] = encryptedParts;
+  try {
+    const iv = Buffer.from(iv64, "base64");
+    const tag = Buffer.from(tag64, "base64");
+    const encryptedData = Buffer.from(token64, "base64");
+    const decipher = createDecipheriv(crypto.algorithm, crypto.key, iv) as DecipherGCM;
+    decipher.setAuthTag(tag);
+    return Buffer.concat([
+      decipher.update(encryptedData),
+      decipher.final()
+    ]).toString("utf-8");
+  } catch {
+    throw new Error("Error al descifrar el token");
   }
-  const iv = Buffer.from(iv64, "base64");
-  const tag = Buffer.from(tag64, "base64");
-  if (iv.length !== crypto.ivLength || tag.length !== 16) {
-    throw new Error("Formato de token invalido");
-  }
-  const decipher = createDecipheriv(crypto.algorithm, crypto.key, iv) as DecipherGCM;
-  decipher.setAuthTag(tag);
-  return Buffer.concat([decipher.update(Buffer.from(data64, "base64")), decipher.final()]).toString("utf8");
 }

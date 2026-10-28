@@ -12,7 +12,16 @@ import { today, tody60YearsAgo } from "../utils/constants/date.constants";
 
 export async function getOwnProfile(userId: string): Promise<Profile> {
   const profile = await ProfileReadRepo.findOwnProfile(userId);
-  if (!profile) throw new AuthenticationError("Sesion invalida o usuario no disponible");
+
+  if (!profile) {
+    throw new AuthenticationError("Sesion invalida o usuario no disponible");
+  }
+
+  const requiresProfileCompletion =
+    !profile.name ||
+    !profile.first_surname ||
+    profile.name === "Usuario" ||
+    profile.first_surname === "Pendiente";
 
   return {
     id: profile.id,
@@ -21,6 +30,7 @@ export async function getOwnProfile(userId: string): Promise<Profile> {
     firstSurname: profile.first_surname,
     email: profile.email,
     profilePicture: profile.profile_picture,
+    requiresProfileCompletion,
     surname: profile.surname,
     phones: profile.phones,
     contactEmails: profile.contact_emails,
@@ -30,6 +40,7 @@ export async function getOwnProfile(userId: string): Promise<Profile> {
     links: profile.links,
   };
 }
+
 
 export async function modifyPersonalInfo(
   userId: string,

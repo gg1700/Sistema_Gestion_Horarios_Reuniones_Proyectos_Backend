@@ -9,6 +9,7 @@ import { AuthenticationError, ConflictError, NotFoundError, ServerError, Validat
 import * as ImageService from "./image.service";
 import * as WorkExpTypes from "../types/work_experience.types";
 import { today, tody60YearsAgo } from "../utils/constants/date.constants";
+import { filterPublicProfile } from "./public-profile-filter.service";
 
 export async function getOwnProfile(userId: string): Promise<Profile> {
   const profile = await ProfileReadRepo.findOwnProfile(userId);
@@ -41,7 +42,6 @@ export async function getOwnProfile(userId: string): Promise<Profile> {
   };
 }
 
-
 export async function modifyPersonalInfo(
   userId: string,
   editablePersonalInfo: ProfileTypes.EditablePersonalInfo,
@@ -49,6 +49,7 @@ export async function modifyPersonalInfo(
 ) {
   try {
     const userFound = await ProfileRepo.existsUser(userId);
+
     if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
 
     const formatedInfo = Mapper.editablePersonalInfoToDB(editablePersonalInfo);
@@ -57,9 +58,13 @@ export async function modifyPersonalInfo(
       if (!(await ProfileRepo.lockActiveUser(userId, client))) {
         throw new AuthenticationError("Sesion invalida o usuario no disponible");
       }
+
       const userInfo: Record<string, any> = {};
+
       if (formatedInfo.name) userInfo.name = formatedInfo.name;
+
       if (formatedInfo.first_surname) userInfo.first_surname = formatedInfo.first_surname;
+
       if (Object.keys(userInfo).length > 0)
         await ProfileRepo.updatePersonalInfo(userId, userInfo, client);
 
@@ -72,29 +77,37 @@ export async function modifyPersonalInfo(
           profilePicture.buffer,
           profilePicture.mimetype
         );
+
         await ProfileRepo.updateProfilePicture(userId, profilePictureURL, client);
       }
+
       if (formatedInfo.phones) {
         const phones = formatedInfo.phones;
 
         const countries = await ProfileRepo.findCountriesByCodes(formatedInfo.phones);
+
         if (countries.length !== formatedInfo.phones.length)
           throw new ValidationError("Error de codigos de pais");
 
         await ProfileRepo.insertUnregisteredNumber(phones, client);
         await ProfileRepo.updatePhoneInfo(userId, phones, client);
       }
+
       if (formatedInfo.contact_emails) {
         const emails = formatedInfo.contact_emails;
+
         await ProfileRepo.insertUnregisteredEmail(emails, client);
         await ProfileRepo.updateEmailInfo(userId, emails, client);
       }
+
       if (formatedInfo.addresses)
         await ProfileRepo.updateAddressInfo(userId, formatedInfo.addresses, client);
+
       if (formatedInfo.links) await ProfileRepo.updateLinkInfo(userId, formatedInfo.links, client);
 
       if (formatedInfo.countries) {
         const countries = await ProfileRepo.findCountriesByName(formatedInfo.countries);
+
         if (countries.length !== formatedInfo.countries.length)
           throw new ValidationError("Pais o paises no encontrados");
 
@@ -121,9 +134,11 @@ export async function modifyWorkExperience(
 ) {
   try {
     const userFound = await ProfileRepo.existsUser(userId);
+
     if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
 
     const workExpFound = await ProfileRepo.existsWorkExperience(id, userId);
+
     if (!workExpFound)
       return {
         result: false,
@@ -137,9 +152,11 @@ export async function modifyWorkExperience(
     if (formatedInfo.start_date) {
       if (formatedInfo.start_date > today)
         throw new ValidationError("La fecha de inicio no puede ser futura");
+
       if (formatedInfo.start_date < tody60YearsAgo)
         throw new ValidationError("La fecha de inicio no puede ser tan antigua");
     }
+
     if (formatedInfo.end_date) {
       if (formatedInfo.end_date > today)
         throw new ValidationError("La fecha de fin no puede ser futura");
@@ -147,14 +164,17 @@ export async function modifyWorkExperience(
       const currentStartDate = !formatedInfo.start_date
         ? workExp[0].start_date
         : formatedInfo.start_date;
+
       if (currentStartDate >= formatedInfo.end_date) {
         throw new ValidationError("La fecha de inicio no puede ser posterior fecha de fin");
       }
+
       if (formatedInfo.end_date < tody60YearsAgo)
         throw new ValidationError("La fecha de fin no puede ser tan antigua");
     }
 
     await ProfileRepo.updateWorkExperience(id, userId, formatedInfo);
+
     return {
       result: true,
       statusCode: 200,
@@ -172,11 +192,32 @@ export async function getPublicProfile(handle: string) {
     return null;
   }
 
+  const profile = await ProfileReadRepo.findOwnProfile(user.id);
+
+  if (!profile) {
+    return null;
+  }
+
+  const publicProfile = filterPublicProfile({
+    id: profile.id,
+    handleName: profile.handle_name,
+    name: profile.name,
+    firstSurname: profile.first_surname,
+    email: profile.email,
+    profilePicture: profile.profile_picture,
+    requiresProfileCompletion: false,
+    surname: profile.surname,
+    phones: profile.phones,
+    contactEmails: profile.contact_emails,
+    addresses: profile.addresses,
+    countries: profile.countries,
+    workExperiences: profile.work_experiences,
+    links: profile.links,
+  });
+
   return {
-    handleName: user.handle_name,
-    name: user.name,
-    firstLastName: user.first_surname,
-    profilePicture: user.profile_picture,
+    ...publicProfile,
+    firstLastName: publicProfile.firstSurname,
   };
 }
 
@@ -200,6 +241,7 @@ export async function createAdditionalInfo(
   profilePicture: Express.Multer.File | undefined) {
   try {
     const formatedInfo = Mapper.additionalInfoToDB(additionalInfo);
+
     if (!hasAnyAdditionalInfo(formatedInfo, profilePicture)) {
       throw new ValidationError("No se envio informacion adicional para registrar");
     }
@@ -217,15 +259,19 @@ export async function createAdditionalInfo(
       if (!(await ProfileRepo.lockActiveUser(userId, client))) {
         throw new AuthenticationError("Sesion invalida o usuario no disponible");
       }
+
       if (formatedInfo.surname) await ProfileRepo.updateSurname(userId, formatedInfo.surname, client);
+
       if (formatedInfo.phones) {
         await ProfileRepo.insertUnregisteredNumber(formatedInfo.phones, client);
         await ProfileRepo.insertUserPhones(userId, formatedInfo.phones, client);
       }
+
       if (formatedInfo.contact_emails) {
         await ProfileRepo.insertUnregisteredEmail(formatedInfo.contact_emails, client);
         await ProfileRepo.insertUserEmails(userId, formatedInfo.contact_emails, client);
       }
+
       if (formatedInfo.addresses) await ProfileRepo.insertAddresses(userId, formatedInfo.addresses, client);
       if (formatedInfo.links) await ProfileRepo.insertLinks(userId, formatedInfo.links, client);
       if (formatedInfo.countries) await ProfileRepo.insertUserCountries(userId, formatedInfo.countries, client);

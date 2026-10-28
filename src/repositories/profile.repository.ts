@@ -265,9 +265,16 @@ export async function hasAdditionalInfo(userId: string) {
   const query = `SELECT EXISTS (SELECT 1 FROM "user" WHERE id = $1 AND deleted_at IS NULL) AND (
     EXISTS (SELECT 1 FROM "user_surname" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "user_phone" WHERE user_id = $1)
-    OR EXISTS (SELECT 1 FROM "user_email" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "user_email" ue
+      JOIN "email" e ON e.id = ue.email_id
+      JOIN "user" u ON u.id = ue.user_id
+      WHERE ue.user_id = $1 AND e.address <> u.email)
     OR EXISTS (SELECT 1 FROM "address" WHERE user_id = $1)
-    OR EXISTS (SELECT 1 FROM "link" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "link" l
+      WHERE l.user_id = $1 AND NOT EXISTS (
+        SELECT 1 FROM "external_account" ea
+        WHERE ea.user_id = l.user_id AND ea.provider = 'github'
+          AND LOWER(l.url) = LOWER('https://github.com/' || ea.provider_username)))
     OR EXISTS (SELECT 1 FROM "user_country" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "workexperience" WHERE user_id = $1)) AS registered`;
   const values = [userId];

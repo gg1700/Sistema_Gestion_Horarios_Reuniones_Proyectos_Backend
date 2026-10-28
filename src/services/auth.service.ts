@@ -6,6 +6,7 @@ import * as AuthTypes from "../types/auth.types";
 import * as SessionService from "./session.service";
 import { registerUserToDB, userFromDB } from "../helpers/mapper.helper";
 import { ConflictError, ServerError } from "../helpers/errors.helper";
+import { processTransaction } from "../utils/query";
 
 export async function viewAccountVinculation(userId: string) {
   try {
@@ -24,7 +25,7 @@ export async function viewAccountVinculation(userId: string) {
       }
     });
     if (!formatedAccounts || formatedAccounts.length === 0) {
-      return { result: true, statusCode: 200, message: "El usuario no tiene cuentas externas vinculadas aun" };
+      return { result: true, statusCode: 200, message: "El usuario no tiene cuentas externas vinculadas aun", data: [] };
     }
     return { result: true, statusCode: 200, message: "Informacion de cuentas vinculadas obtenida correctamente", data: formatedAccounts };
   } catch (err) {
@@ -34,25 +35,24 @@ export async function viewAccountVinculation(userId: string) {
 
 export async function revokeAccessAccount(userId: string, provider: string) {
   try {
-    const userFound = await ProfileRepo.existsUser(userId);
-    if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
-
-    const currentAccounts = await AuthRepo.getExternalAccounts(userId);
-    if (!currentAccounts || currentAccounts.length <= 1) {
-      return { result: false, statusCode: 409, message: "No es posible revocar el acceso, usuario con 1 o 0 cuentas" };
-    }
-
-    const providerAccount = currentAccounts.find(account => (account.provider === provider));
-    const { result, statusCode, message } = await ProviderService.revokeAccessAtProvider(providerAccount);
-    if (!result) return { result: result, statusCode: statusCode, message: message };
-
-    const deletedAccount = await AuthRepo.deleteExternalAccount(providerAccount.id, userId);
-    if (!deletedAccount || deletedAccount.length === 0) 
-      return { result: false, statusCode: 400, message: "Error al eliminar registro de cuenta revocada" };
-    
-    return { result: true, statusCode: 200, message: "Acceso revocado correctamente" };
-  } catch (err) {
-    return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
+    return await processTransaction(async client => {
+      // Serializar desvinculaciones del mismo titular: dos peticiones no deben
+      // poder eliminar a la vez sus dos únicas formas de acceso.
+      const user = await client.query(`SELECT id FROM public."user" WHERE id = $1 AND deleted_at IS NULL AND status = 'active' FOR UPDATE`, [userId]);
+      if (!user.rowCount) return { result: false, statusCode: 404, message: "El usuario no existe" };
+      const { rows: accounts } = await client.query(`SELECT * FROM public.external_account WHERE user_id = $1 AND provider IN ('google', 'github')`, [userId]);
+      const account = accounts.find(account => account.provider === provider);
+      if (!account) return { result: false, statusCode: 404, message: "Esa cuenta no está vinculada." };
+      if (!accounts.some(account => account.provider !== provider && ['active', 'expired'].includes(account.state))) {
+        return { result: false, statusCode: 409, message: "Vincula Google o GitHub antes de quitar tu última cuenta de acceso." };
+      }
+      const revoked = await ProviderService.revokeAccessAtProvider(account);
+      if (!revoked.result) return { result: false, statusCode: 502, message: "El proveedor no pudo completar la desvinculación. Intenta nuevamente." };
+      await client.query(`DELETE FROM public.external_account WHERE id = $1 AND user_id = $2`, [account.id, userId]);
+      return { result: true, statusCode: 200, message: "Acceso revocado correctamente" };
+    });
+  } catch {
+    return { result: false, statusCode: 500, message: "No se pudo desvincular la cuenta." };
   }
 }
 

@@ -27,7 +27,7 @@ export interface OwnProfileDB {
 
 export async function isActiveProfileUser(userId: string): Promise<boolean> {
   const rows = await processReturnQuery(
-    `SELECT id FROM public."user" WHERE id = $1 AND deleted_at IS NULL`,
+    `SELECT id FROM public."user" WHERE id = $1 AND deleted_at IS NULL AND status = 'active'`,
     [userId]
   );
   return rows.length > 0;

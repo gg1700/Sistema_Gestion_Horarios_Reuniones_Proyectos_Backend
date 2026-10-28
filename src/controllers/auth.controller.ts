@@ -11,7 +11,7 @@ import { env } from "../config/env.config";
 
 export async function viewAccountVinculation(req: Request, res: Response) {
   try {
-    const { userId } = req.user as TokenTypes.TokenPayload || req.query;
+    const { userId } = req.user as TokenTypes.TokenPayload;
     const validatedUserId = GeneralValidations.validateId(userId);
 
     const { result, statusCode, message, data } = await AuthService.viewAccountVinculation(validatedUserId);
@@ -56,7 +56,7 @@ export async function registerUser(req: Request, res: Response) {
 
 export async function revokeAccessAccount(req: Request, res: Response) {
   try {
-    const { userId } = req.user as TokenTypes.TokenPayload || req.query;
+    const { userId } = req.user as TokenTypes.TokenPayload;
     const provider = req.params.provider;
     
     const validatedUserId = GeneralValidations.validateId(userId);
@@ -119,18 +119,21 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
     }
 
     const { authorizationUrl, flow } = OAuthService.generateAuthorization(provider);
+    const returnTo = typeof req.query.returnTo === "string" && ["/panel", "/perfil/conexiones", "/perfil/conexiones/github", "/bienvenida"].includes(req.query.returnTo)
+      ? req.query.returnTo : intent === "link" ? "/perfil/conexiones" : "/panel";
 
     res.cookie("oauth_flow", JSON.stringify({
       ...flow,
       intent,
       userId,
+      returnTo,
       issuedAt: Date.now(),
     }), {
       signed: true,
       httpOnly: true,
       secure: env.NODE_ENV === "production",
       sameSite: "lax",
-      path: "/api/v1/auth",
+      path: "/api",
       maxAge: 5 * 60 * 1000,
     });
 

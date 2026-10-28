@@ -3,7 +3,7 @@ export type HandleValidationResult =
 
 const handlePattern = /^[a-z0-9-]{3,50}$/;
 
-const reservedHandles = new Set(["admin", "api", "login", "public"]);
+const reservedHandles = new Set(["admin", "api", "login", "public", "acceso", "agenda", "panel", "perfil", "solicitudes", "bienvenida", "reuniones"]);
 
 export function validatePublicHandle(handle: unknown): HandleValidationResult {
   if (typeof handle !== "string" || !handlePattern.test(handle)) {

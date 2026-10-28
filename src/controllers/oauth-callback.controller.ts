@@ -15,11 +15,19 @@ interface StoredOAuthFlow extends OAuthFlow {
   intent: "login" | "link";
   userId: string | null;
   issuedAt: number;
+  returnTo?: string;
 }
 
-function redirectResult(res: Response, status: string): void {
+function redirectResult(res: Response, status: string, flow?: StoredOAuthFlow): void {
   const url = new URL(env.FRONTEND_OAUTH_CALLBACK_URL);
+  url.pathname = "/acceso";
   url.searchParams.set("oauth", status);
+  if (flow) {
+    url.searchParams.set("provider", flow.provider);
+    url.searchParams.set("intent", flow.intent);
+    const allowed = ["/panel", "/perfil/conexiones", "/perfil/conexiones/github", "/bienvenida"];
+    url.searchParams.set("returnTo", flow.returnTo && allowed.includes(flow.returnTo) ? flow.returnTo : flow.intent === "link" ? "/perfil/conexiones" : "/panel");
+  }
   res.redirect(302, url.toString());
 }
 
@@ -62,6 +70,9 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
     sameSite: "lax",
     path: "/api/v1/auth",
   });
+  res.clearCookie("oauth_flow", {
+    httpOnly: true, secure: env.NODE_ENV === "production", sameSite: "lax", path: "/api",
+  });
 
   let provider: "google" | "github";
 
@@ -73,7 +84,7 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
   }
 
   if (req.query.error === "access_denied") {
-    redirectResult(res, "access_denied");
+    redirectResult(res, "access_denied", flow?.provider === provider ? flow : undefined);
     return;
   }
 
@@ -138,15 +149,15 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       maxAge: 24 * 60 * 60 * 1000,
     });
 
-    redirectResult(res, "success");
+    redirectResult(res, "success", flow);
   } catch (error) {
     if (error instanceof OAuthCallbackError) {
-      redirectResult(res, error.code);
+      redirectResult(res, error.code, flow);
       return;
     }
 
     if (error instanceof ConflictError) {
-      redirectResult(res, error.message);
+      redirectResult(res, error.message, flow);
       return;
     }
 

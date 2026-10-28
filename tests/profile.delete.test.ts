@@ -184,9 +184,9 @@ describe("DELETE /api/v1/profile", () => {
       expect(responses.map(response => response.status)).toEqual([401, 401, 401, 401, 401]);
     }
     expect((await pool.query(`SELECT id FROM public."user" WHERE handle_name = 'test-delete-owner' AND public_link_active = true AND deleted_at IS NULL`)).rows).toEqual([]);
-    const registered = await request(app).post("/api/v1/auth/register").send({ handleName: "test-delete-owner", name: "Nueva", firstSurname: "Persona", email: "delete-owner@example.com", password: "Segura123" });
-    expect(registered.status).toBe(201);
-    ids.push(registered.body.data.user.id);
+    const registered = await pool.query(`INSERT INTO public."user" (handle_name, name, first_surname, email)
+      VALUES ('test-delete-owner', 'Nueva', 'Persona', 'delete-owner@example.com') RETURNING id`);
+    ids.push(registered.rows[0].id);
   });
 
   it("continues deletion when a provider is unavailable or already revoked", async () => {

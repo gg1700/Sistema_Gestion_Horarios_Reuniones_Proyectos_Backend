@@ -1,6 +1,7 @@
 import { Router } from "express";
 import * as RateLimit from "../middlewares/rateLimit.middleware";
 import * as Validations from "../middlewares/validations.middleware";
+import * as Session from "../middlewares/session.middleware";
 import * as AuthController from "../controllers/auth.controller";
 import { oauthCallback } from "../controllers/oauth-callback.controller";
 
@@ -17,11 +18,20 @@ router.delete(
   AuthController.revokeAccessAccount
 );
 
-router.post(
+router.get(
+  "/register",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  AuthController.getRegistrationStatus
+);
+
+router.patch(
   "/register",
   RateLimit.registerRateLimit,
-  Validations.registerUser,
-  AuthController.registerUser
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  Validations.completeRegistration,
+  AuthController.completeRegistration
 );
 
 router.get(

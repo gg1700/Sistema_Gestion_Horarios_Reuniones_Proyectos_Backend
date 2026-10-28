@@ -5,6 +5,7 @@ import type {
   RefreshedGoogleToken
 } from "../types/google-token.types";
 
+
 export async function findGoogleAccountForUpdate(
   client: PoolClient,
   userId: string
@@ -18,8 +19,15 @@ export async function findGoogleAccountForUpdate(
        ea.access_expires_at,
        ea.state
      FROM public.external_account ea
+     JOIN public."user" u ON u.id = ea.user_id
      WHERE ea.user_id = $1
        AND ea.provider = 'google'
+       AND u.deleted_at IS NULL
+       AND u.status = 'active'
+       AND (
+         ea.scopes LIKE '%https://www.googleapis.com/auth/calendar.events%'
+         OR ea.scopes LIKE '%https://www.googleapis.com/auth/calendar.calendarlist.readonly%'
+       )
      FOR UPDATE OF ea`,
     [userId]
   );

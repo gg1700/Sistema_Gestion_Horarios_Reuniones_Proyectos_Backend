@@ -2,6 +2,7 @@ import request from "supertest";
 import { describe, it, expect, beforeEach, afterAll } from "vitest";
 import { app } from "../src/config/server.config";
 import pool from "../src/config/database.config";
+import { createSession } from "../src/services/session.service";
 
 const profileRoute = "/api/v1/profile";
 
@@ -117,5 +118,33 @@ describe("POST /api/v1/profile", () => {
 
     expect(withoutSession.status).toBe(401);
     expect(invalidSession.status).toBe(401);
+  });
+
+  it("allows additional information for users created with OAuth", async () => {
+    const { rows } = await pool.query(
+      `INSERT INTO "user" (handle_name, name, first_surname, email)
+       VALUES ('test-oauth', 'Ana', 'Rojas', 'test.oauth@mail.com')
+       RETURNING id`
+    );
+    const userId = rows[0].id;
+    const emailRows = await pool.query(
+      `INSERT INTO "email" (address) VALUES ('test.oauth@mail.com')
+       ON CONFLICT (address) DO UPDATE SET address = EXCLUDED.address
+       RETURNING id`
+    );
+    await pool.query(`INSERT INTO "user_email" (user_id, email_id, visible) VALUES ($1, $2, false)`, [userId, emailRows.rows[0].id]);
+    await pool.query(
+      `INSERT INTO "external_account" (user_id, provider, provider_user_id, provider_username, access_token)
+       VALUES ($1, 'github', 'test-oauth-github', 'test-oauth', 'encrypted-token')`,
+      [userId]
+    );
+    await pool.query(`INSERT INTO "link" (user_id, text, url, visible) VALUES ($1, 'GitHub', 'https://github.com/test-oauth', false)`, [userId]);
+    const oauthAuthorization = `Bearer ${createSession(userId, "test-oauth").token}`;
+
+    const firstResponse = await request(app).post(profileRoute).set("Authorization", oauthAuthorization).send(validAdditionalInfo);
+    const secondResponse = await request(app).post(profileRoute).set("Authorization", oauthAuthorization).send(validAdditionalInfo);
+
+    expect(firstResponse.status).toBe(201);
+    expect(secondResponse.status).toBe(409);
   });
 });

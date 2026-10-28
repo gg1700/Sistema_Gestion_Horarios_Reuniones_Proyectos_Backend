@@ -7,7 +7,7 @@ import * as GithubAPIService from "./github-api.service";
 import { Octokit } from "octokit";
 import * as GithubRepo from "../repositories/github.repository";
 
-export async function requestGithubActivity(userId: string, type: "activity" | "grid") {
+export async function requestGithubActivity(userId: string, type: "list" | "grid") {
   try {
     const userFound = await ProfileRepo.existsUser(userId);
     if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
@@ -24,7 +24,7 @@ export async function requestGithubActivity(userId: string, type: "activity" | "
     const accessToken = decryptToken(githubAccount[0].access_token);
     const username = githubAccount[0].provider_username;
     const octokit = new Octokit({ auth: accessToken });
-    const ans = (type === "activity")
+    const ans = (type === "list")
       ? await GithubAPIService.getGithubActivity(octokit, username)
       : await GithubAPIService.getGithubActivityGrid(octokit, username);
     const { result, statusCode, message, data } = ans;
@@ -33,14 +33,30 @@ export async function requestGithubActivity(userId: string, type: "activity" | "
       if (statusCode === 401) {
         const accountId = githubAccount[0].id;
         await ExternalAccountRepo.updateExternalAccountState(ExternalAccountTypes.ExternalAccountState.EXPIRED, accountId, userId);
-      } 
+        return {
+          result: false,
+          statusCode: statusCode,
+          message: "Token de GitHub expirado, se requiere reconectar la cuenta",
+          data: []
+        };
+      }
+
+      const cachedActivity = await GithubRepo.getGithubActivity(userId, type);
+      if (cachedActivity && cachedActivity[0].activity)
+        return {
+          result: true,
+          statusCode: 200,
+          message: "GitHub no esta disponible, ultima actividad guardada devuelta",
+          data: JSON.parse(cachedActivity[0].activity)
+        };
+
       return { result: result, statusCode: statusCode, message: message };
     }
 
     await GithubRepo.upsertGithubActivity(userId, type, JSON.stringify(data)); 
-    if (type === "activity" && Array.isArray(data) && data.length === 0)
+    if (type === "list" && Array.isArray(data) && data.length === 0)
       return { result: true, statusCode: 200, message: "El usuario no tiene actividad reciente en GitHub", data: [] };
-    
+
     return { result: result, statusCode: 200, message: message, data: data };
   } catch (err) {
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };

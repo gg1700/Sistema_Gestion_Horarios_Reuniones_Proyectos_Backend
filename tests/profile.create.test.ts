@@ -21,14 +21,12 @@ async function deleteTestUsers() {
 }
 
 async function registerTestUser() {
-  const response = await request(app).post("/api/v1/auth/register").send({
-    handleName: "test-profile",
-    name: "ana",
-    firstSurname: "perez",
-    email: "test.profile@mail.com",
-    password: "Segura123"
-  });
-  return `Bearer ${response.body.data.session.token}`;
+  const { rows } = await pool.query(
+    `INSERT INTO "user" (handle_name, name, first_surname, email)
+     VALUES ('test-profile', 'Ana', 'Perez', 'test.profile@mail.com')
+     RETURNING id`
+  );
+  return `Bearer ${createSession(rows[0].id, "test-profile").token}`;
 }
 
 describe("POST /api/v1/profile", () => {

@@ -14,3 +14,16 @@ export interface GridResponse {
     }
   }
 }
+
+export interface EventActivity {
+  type: string | null;
+  repo: Repository;
+  date: Date | string | null;
+  payload: any;
+}
+
+interface Repository {
+  id: number;
+  name: string;
+  url: string;
+}

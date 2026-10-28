@@ -1,6 +1,6 @@
 import { Octokit } from "octokit";
 import * as ArrayConstants from "../utils/constants/array.constants";
-import * as GitHubTypes from "../types/github.types";
+import * as GithubTypes from "../types/github.types";
 
 export async function getGithubActivity(octokit: Octokit, username: string) {
   try {
@@ -11,11 +11,20 @@ export async function getGithubActivity(octokit: Octokit, username: string) {
     });
 
     const filteredEvents = data.filter((e) => e.type !== null && ArrayConstants.GITHUB_EVENT_TYPES.includes(e.type));
+    const formatedEvents: GithubTypes.EventActivity[] = [];
+    filteredEvents.forEach((e) => {
+      formatedEvents.push({
+        type: e.type,
+        repo: e.repo,
+        date: e.created_at,
+        payload: e.payload
+      });
+    });
     return { 
       result: true,
       statusCode: 200,
       message: "Actividad reciente de GitHub del usuario obtenida correctamente",
-      data: filteredEvents
+      data: formatedEvents
     };
   } catch (err) {
     return {
@@ -46,7 +55,10 @@ export async function getGithubActivityGrid(octokit: Octokit, username: string) 
         }
       } 
     `;
-    const data = await octokit.graphql(query, { username: username }) as GitHubTypes.GridResponse;
+    const data = await octokit.graphql(query, { username: username }) as GithubTypes.GridResponse;
+    if (!data.user)
+      return { result: false, statusCode: 404, message: "Usuario de GitHub no encontrado" };
+
     const activityGrid = data.user.contributionsCollection.contributionCalendar;
     return {
       result: true,

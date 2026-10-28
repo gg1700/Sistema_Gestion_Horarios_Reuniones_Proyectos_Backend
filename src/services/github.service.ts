@@ -5,6 +5,7 @@ import { decryptToken } from "../utils/token";
 import * as ExternalAccountTypes from "../types/external-account.types";
 import * as GithubAPIService from "./github-api.service";
 import { Octokit } from "octokit";
+import * as GithubRepo from "../repositories/github.repository";
 
 export async function requestGithubActivity(userId: string, type: "activity" | "grid") {
   try {
@@ -27,13 +28,20 @@ export async function requestGithubActivity(userId: string, type: "activity" | "
       ? await GithubAPIService.getGithubActivity(octokit, username)
       : await GithubAPIService.getGithubActivityGrid(octokit, username);
     const { result, statusCode, message, data } = ans;
-    if (!data && type === "activity")
+
+    if (!result) {
+      if (statusCode === 401) {
+        const accountId = githubAccount[0].id;
+        await ExternalAccountRepo.updateExternalAccountState(ExternalAccountTypes.ExternalAccountState.EXPIRED, accountId, userId);
+      } 
+      return { result: result, statusCode: statusCode, message: message };
+    }
+
+    await GithubRepo.upsertGithubActivity(userId, type, JSON.stringify(data)); 
+    if (type === "activity" && Array.isArray(data) && data.length === 0)
       return { result: true, statusCode: 200, message: "El usuario no tiene actividad reciente en GitHub", data: [] };
-    if (!data && type === "grid")
-      return { result: false, statusCode: 404, message: "Error al obtener grilla de actividad de GitHub" };
-    if (!result) return { result: result, statusCode: statusCode, message: message };
-    return { result: result, statudCode: 200, message: message, data: data };
     
+    return { result: result, statusCode: 200, message: message, data: data };
   } catch (err) {
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
   }

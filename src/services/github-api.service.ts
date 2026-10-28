@@ -2,7 +2,7 @@ import { Octokit } from "octokit";
 import * as ArrayConstants from "../utils/constants/array.constants";
 import * as GithubTypes from "../types/github.types";
 
-export async function getGithubActivity(octokit: Octokit, username: string) {
+export async function getGithubActivityList(octokit: Octokit, username: string) {
   try {
     const { data } = await octokit.request(`GET /users/{username}/events`, {
       username: username,

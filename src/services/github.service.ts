@@ -25,7 +25,7 @@ export async function requestGithubActivity(userId: string, type: "list" | "grid
     const username = githubAccount[0].provider_username;
     const octokit = new Octokit({ auth: accessToken });
     const ans = (type === "list")
-      ? await GithubAPIService.getGithubActivity(octokit, username)
+      ? await GithubAPIService.getGithubActivityList(octokit, username)
       : await GithubAPIService.getGithubActivityGrid(octokit, username);
     const { result, statusCode, message, data } = ans;
 

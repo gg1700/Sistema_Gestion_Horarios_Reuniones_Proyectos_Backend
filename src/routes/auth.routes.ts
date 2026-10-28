@@ -3,17 +3,22 @@ import * as RateLimit from "../middlewares/rateLimit.middleware";
 import * as Validations from "../middlewares/validations.middleware";
 import * as AuthController from "../controllers/auth.controller";
 import { oauthCallback } from "../controllers/oauth-callback.controller";
+import * as Session from "../middlewares/session.middleware";
 
 const router = Router();
 
 router.get(
   "/accounts",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
   AuthController.viewAccountVinculation
 );
 
 router.delete(
   "/accounts/:provider",
   RateLimit.authRateLimit,
+  Session.verifySession,
+  Session.requireActiveProfileUser,
   AuthController.revokeAccessAccount
 );
 

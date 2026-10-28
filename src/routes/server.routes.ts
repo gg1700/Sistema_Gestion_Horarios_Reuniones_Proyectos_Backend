@@ -25,7 +25,7 @@ router.get(
   publicProfileRateLimit,
   ProfileController.getPublicProfile
 );
-router.use("/api/v1/integrations", GithubRoutes);
+router.use("/api/v1/integrations/github", GithubRoutes);
 
 router.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Ruta no encontrada..." });

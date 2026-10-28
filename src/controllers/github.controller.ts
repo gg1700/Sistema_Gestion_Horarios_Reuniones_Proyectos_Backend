@@ -5,7 +5,7 @@ import * as GithubService from "../services/github.service";
 
 export async function requestGithubActivity(req: Request, res: Response) {
   try {
-    const { userId } = req.user as TokenTypes.TokenPayload || req.query;
+    const { userId } = req.user as TokenTypes.TokenPayload;
     const validatedUserId = GeneralValidations.validateId(userId);
     const { type: activityType } = req.params;
 

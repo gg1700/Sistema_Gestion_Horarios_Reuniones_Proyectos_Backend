@@ -1,4 +1,4 @@
-# T-28 — Decisión de identidad OAuth2
+# Decisión de identidad OAuth2
 
 ## 1. Descripción
 
@@ -39,6 +39,12 @@ ORDER BY user_id, provider;
 ```
 
 ## 3. Endpoints
+Se actualizaron o agregaron endpoint en base a una issue:
+
+### Endpoints de autorización de Google Calendar
+
+Se sigue teniendo estos pero habria que ver si lo usan o directo eliminar 
+las `intent=link` y `mode=json`
 
 | Método | Endpoint | Función |
 |---|---|---|
@@ -51,6 +57,21 @@ ORDER BY user_id, provider;
 
 `intent` admite `login` (valor predeterminado) y `link`.
 
+
+La autenticación con Google y la solicitud de permisos para Google Calendar se realizan mediante flujos independientes. Los siguientes endpoints fueron implementados en una issue posterior.
+
+| Método | Endpoint | Función |
+|---|---|---|
+| GET | `/api/v1/integrations/google-calendar/connect` | Iniciar el flujo OAuth2 para solicitar permisos de Google Calendar |
+| GET | `/api/v1/integrations/google-calendar/callback` | Procesar la respuesta de autorización de Google Calendar |
+
+Para autorizar Google Calendar, el usuario debe tener una sesión activa e ingresar a:
+
+`http://localhost:3000/api/v1/integrations/google-calendar/connect`
+
+Después de conceder los permisos, Google redirige al callback, donde se procesan las credenciales de autorización.
+
+Este flujo es independiente del inicio de sesión mediante `/api/v1/auth/google`.
 ## 4. Respuestas del endpoint de autorización
 
 **GET `/api/v1/auth/:provider`**

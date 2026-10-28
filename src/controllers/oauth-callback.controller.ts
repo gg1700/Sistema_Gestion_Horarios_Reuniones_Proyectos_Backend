@@ -150,7 +150,11 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    console.error("OAuth callback processing failed");
+    if (env.NODE_ENV === "development") {
+      console.error("OAuth callback processing failed:", error);
+    } else {
+      console.error("OAuth callback processing failed");
+    }
     redirectResult(res, "internal_error");
   }
 }

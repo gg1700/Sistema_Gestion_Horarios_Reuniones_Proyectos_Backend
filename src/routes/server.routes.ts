@@ -5,6 +5,8 @@ import * as ProfileController from "../controllers/profile.controller";
 import { publicProfileRateLimit } from "../middlewares/publicProfileRateLimit.middleware";
 import AuthRoutes from "./auth.routes";
 import GoogleCalendarRoutes from "./google-calendar.routes";
+import GithubRoutes from "./github.routes";
+
 const router = Router();
 
 router.get("/health", (req: Request, res: Response) => {
@@ -23,6 +25,7 @@ router.get(
   publicProfileRateLimit,
   ProfileController.getPublicProfile
 );
+router.use("/api/v1/integrations", GithubRoutes);
 
 router.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Ruta no encontrada..." });

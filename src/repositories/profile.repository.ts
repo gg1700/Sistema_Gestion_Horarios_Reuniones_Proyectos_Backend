@@ -6,7 +6,7 @@ import * as WorkExpTypes from "../types/work_experience.types";
 export async function existsUser(userId: string) {
   const query = `
     SELECT * FROM "user"
-    WHERE id = $1 AND deleted_at IS NULL`;
+    WHERE id = $1 AND deleted_at IS NULL AND status = ${ProfileTypes.UserStatus.ACTIVE}`;
   const values = [userId];
   const userFound = await processReturnQuery(query, values);
   return userFound.length !== 0;

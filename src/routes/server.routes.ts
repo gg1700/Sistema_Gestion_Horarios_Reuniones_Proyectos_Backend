@@ -4,7 +4,7 @@ import ProfileRoutes from "./profile.routes";
 import * as ProfileController from "../controllers/profile.controller";
 import { publicProfileRateLimit } from "../middlewares/publicProfileRateLimit.middleware";
 import AuthRoutes from "./auth.routes";
-
+import GoogleCalendarRoutes from "./google-calendar.routes";
 const router = Router();
 
 router.get("/health", (req: Request, res: Response) => {
@@ -17,7 +17,7 @@ router.get("/health", (req: Request, res: Response) => {
 router.use("/api/v1/profile/public-link", publicLinkRoutes);
 router.use("/api/v1/profile", ProfileRoutes);
 router.use("/api/v1/auth", AuthRoutes)
-
+router.use("/api/v1/integrations/google-calendar",GoogleCalendarRoutes);
 router.get(
   "/api/v1/public/profiles/:handle",
   publicProfileRateLimit,

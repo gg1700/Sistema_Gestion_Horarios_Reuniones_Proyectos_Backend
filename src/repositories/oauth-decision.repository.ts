@@ -84,8 +84,19 @@ async function createUser(client: PoolClient, input: OAuthDecisionInput): Promis
   throw new ConflictError("handle_unavailable");
 }
 
-async function saveAccount(client: PoolClient, userId: string, input: OAuthDecisionInput) {
+async function saveAccount(
+  client: PoolClient,
+  userId: string,
+  input: OAuthDecisionInput
+) {
   const { provider, profile, tokens } = input;
+
+  const isGoogle = provider === "google";
+
+  const accessToken = encryptToken(tokens.accessToken);
+  const refreshToken = tokens.refreshToken
+    ? encryptToken(tokens.refreshToken)
+    : null;
 
   const result = await client.query(
     `INSERT INTO public.external_account (
@@ -98,23 +109,59 @@ async function saveAccount(client: PoolClient, userId: string, input: OAuthDecis
      DO UPDATE SET
        provider_username = EXCLUDED.provider_username,
        provider_user_email = EXCLUDED.provider_user_email,
-       access_token = EXCLUDED.access_token,
-       refresh_token = COALESCE(EXCLUDED.refresh_token, public.external_account.refresh_token),
-       access_expires_at = EXCLUDED.access_expires_at,
-       scopes = EXCLUDED.scopes,
+
+       access_token = CASE
+         WHEN EXCLUDED.provider = 'google'
+              AND public.external_account.scopes LIKE '%https://www.googleapis.com/auth/calendar.%'
+         THEN public.external_account.access_token
+         ELSE EXCLUDED.access_token
+       END,
+
+       refresh_token = CASE
+         WHEN EXCLUDED.provider = 'google'
+              AND public.external_account.scopes LIKE '%https://www.googleapis.com/auth/calendar.%'
+         THEN public.external_account.refresh_token
+         ELSE COALESCE(
+           EXCLUDED.refresh_token,
+           public.external_account.refresh_token
+         )
+       END,
+
+       access_expires_at = CASE
+         WHEN EXCLUDED.provider = 'google'
+              AND public.external_account.scopes LIKE '%https://www.googleapis.com/auth/calendar.%'
+         THEN public.external_account.access_expires_at
+         ELSE EXCLUDED.access_expires_at
+       END,
+
+       scopes = CASE
+         WHEN EXCLUDED.provider = 'google'
+              AND public.external_account.scopes LIKE '%https://www.googleapis.com/auth/calendar.%'
+         THEN public.external_account.scopes
+         ELSE EXCLUDED.scopes
+       END,
+
        state = 'active',
        updated_at = NOW()
-     WHERE public.external_account.provider_user_id = EXCLUDED.provider_user_id
+     WHERE public.external_account.provider_user_id =
+           EXCLUDED.provider_user_id
      RETURNING id`,
     [
-      userId, provider, profile.id, profile.username, profile.email,
-      encryptToken(tokens.accessToken),
-      tokens.refreshToken ? encryptToken(tokens.refreshToken) : null,
-      tokens.expiresAt, tokens.scopes,
+      userId,
+      provider,
+      profile.id,
+      profile.username,
+      profile.email,
+      accessToken,
+      refreshToken,
+      tokens.expiresAt,
+      tokens.scopes
     ]
   );
 
-  if (!result.rowCount) throw new ConflictError("account_conflict");
+  if (!result.rowCount) {
+    throw new ConflictError("account_conflict");
+  }
 }
 
 async function saveInitialDetails(client: PoolClient, userId: string, input: OAuthDecisionInput) {

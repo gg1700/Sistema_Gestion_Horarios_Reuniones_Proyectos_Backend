@@ -20,8 +20,8 @@ export async function findAccountsForRevocation(client: PoolClient, userId: stri
 }
 
 export async function findExternalAccountByProvider(userId: string, provider: string) {
-  const query = `SELECT provider_username, provider_user_email, access_token, 
-    refresh_token, state FROM "external_account"
+  const query = `SELECT id, provider_user_id, provider_username, provider_user_email, access_token,
+    refresh_token, access_expires_at, scopes, state FROM "external_account"
     WHERE user_id = $1 AND provider = $2`;
   const values = [userId, provider];
   const externalAccount = processReturnQuery(query, values);

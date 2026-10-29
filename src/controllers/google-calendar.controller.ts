@@ -2,9 +2,10 @@ import type { Request, Response } from "express";
 import {
   listGoogleCalendars,
   selectGoogleCalendar,
+  getGoogleCalendarStatus,
+  unlinkGoogleCalendar,
   GoogleCalendarError
 } from "../services/google-calendar.service";
-
 function handleError(res: Response, error: unknown): void {
   if (error instanceof GoogleCalendarError) {
     const status: Record<GoogleCalendarError["code"], number> = {
@@ -64,6 +65,28 @@ export async function selectCalendar(
       success: true,
       data
     });
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+export async function getConnectionStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const data = await getGoogleCalendarStatus(userId);
+
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+
+export async function disconnectCalendar(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const data = await unlinkGoogleCalendar(userId);
+
+    res.status(200).json({ success: true, data });
   } catch (error) {
     handleError(res, error);
   }

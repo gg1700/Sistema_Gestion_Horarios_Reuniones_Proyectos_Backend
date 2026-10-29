@@ -123,19 +123,22 @@ export async function getGoogleCalendarStatus(userId: string): Promise<GoogleCal
 
   if (!account) return disconnected;
 
+  if (account.calendar_status === "reconnection_required") {
+    return {
+      status: "expired",
+      calendarId: account.google_calendar_id,
+      calendarName: account.calendar_name,
+      reconnectRequired: true
+    };
+  }
+
   const scopes = account.scopes?.split(/\s+/).filter(Boolean) ?? [];
-  const hasCalendarScopes =
-    scopes.includes("https://www.googleapis.com/auth/calendar.events") &&
+  const hasCalendarScopes = scopes.includes("https://www.googleapis.com/auth/calendar.events") &&
     scopes.includes("https://www.googleapis.com/auth/calendar.calendarlist.readonly");
 
   if (!hasCalendarScopes) return disconnected;
 
-  const reconnectRequired =
-    account.state === "revoked" ||
-    account.calendar_status === "reconnection_required" ||
-    !account.has_refresh_token;
-
-  if (reconnectRequired) {
+  if (account.state === "revoked" || !account.has_refresh_token) {
     return {
       status: "expired",
       calendarId: account.google_calendar_id,

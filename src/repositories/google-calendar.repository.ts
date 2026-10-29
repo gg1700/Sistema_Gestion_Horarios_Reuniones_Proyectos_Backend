@@ -129,8 +129,7 @@ export async function disconnectGoogleCalendar(
 
     const scopes = account.scopes?.split(/\s+/).filter(Boolean) ?? [];
     const hasCalendarScopes = scopes.some(scope =>
-      scope === "https://www.googleapis.com/auth/calendar.events" ||
-      scope === "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
+      scope.startsWith("https://www.googleapis.com/auth/calendar.")
     );
 
     if (hasCalendarScopes) {
@@ -150,7 +149,7 @@ export async function disconnectGoogleCalendar(
          SET refresh_token = NULL,
              access_expires_at = NULL,
              scopes = NULL,
-             state = 'active',
+             state = 'revoked',
              updated_at = NOW()
          WHERE id = $1`,
         [account.id]
@@ -158,4 +157,3 @@ export async function disconnectGoogleCalendar(
     }
   });
 }
-

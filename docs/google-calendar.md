@@ -193,3 +193,72 @@ De esta manera se pueden realizar la prueba con calendario de solo lectura o id 
 ## 7. Pruebas automatizadas
 
 Los escenarios incluyen listado, selección válida, permisos insuficientes, calendarios inaccesibles, IDs inválidos, reconexión requerida, paginación y errores de Google.
+
+## 8. Estado y desvinculación de Google Calendar (T-37)
+
+### Endpoints
+
+**GET `/api/v1/integrations/google-calendar/status`**
+
+Consulta el estado de la conexión del usuario autenticado.
+
+| Estado | Descripción |
+|---|---|
+| `connected` | Autorización activa. |
+| `expired` | Acceso revocado o requiere reconexión. |
+| `disconnected` | Calendar no está vinculado. |
+
+Respuesta HTTP 200:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "connected",
+    "calendarId": "calendar-id",
+    "calendarName": "Mi calendario",
+    "reconnectRequired": false
+  }
+}
+```
+
+**DELETE `/api/v1/integrations/google-calendar`**
+
+Desvincula Google Calendar mediante las siguientes operaciones:
+
+- Revoca la autorización OAuth en Google.
+- Elimina el refresh token y los permisos almacenados.
+- Elimina el calendario seleccionado de `calendar_connection`.
+- Conserva la cuenta externa Google y la sesión del usuario.
+
+Respuesta HTTP 200:
+
+```json
+{
+  "success": true,
+  "data": {
+    "status": "disconnected",
+    "message": "Google Calendar desvinculado correctamente"
+  }
+}
+```
+
+### Detección de acceso revocado
+
+Se reutiliza la T-35. Cuando Google devuelve `invalid_grant` durante la renovación del token, el sistema marca la autorización como `revoked` y la conexión como `reconnection_required`.
+
+El endpoint de estado devuelve `expired`, indicando que el usuario debe autorizar nuevamente Calendar.
+
+### Pruebas
+
+Se verificaron en Postman los estados de conexión, la desvinculación y la conservación de la sesión y cuenta externa.
+
+Las pruebas unitarias de la T-37 están en:
+
+`tests/google-calendar-disconnect.test.ts`
+**Consideraciones**
+- La consulta de estado depende de los datos almacenados en PostgreSQL.
+- La revocación externa se detecta al intentar renovar el token OAuth.
+- La desvinculación no elimina la identidad Google del usuario ni su sesión.
+- La revocación de tokens en Google puede afectar autorizaciones compartidas con otras integraciones como meet dado que revoka todos los permisos OAuth concedidos.
+- La conexión puede recuperarse mediante una nueva autorización OAuth de Google Calendar.

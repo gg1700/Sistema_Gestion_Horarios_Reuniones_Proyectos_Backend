@@ -31,3 +31,4 @@ export const deleteAccountRateLimit = createRateLimit(5);
 export const authRateLimit = createRateLimit(20);
 
 export const githubActivityRateLimit = createRateLimit(15);
+export const googleCalendarRateLimit = createRateLimit(30);

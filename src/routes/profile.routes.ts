@@ -7,6 +7,7 @@ import * as RateLimit from "../middlewares/rateLimit.middleware";
 import * as ProfileController from "../controllers/profile.controller";
 import * as VisibilityController from "../controllers/visibility.controller";
 import { deleteAccount } from "../controllers/account-deletion.controller";
+import { requireRepositoryOrigin } from "../middlewares/repository-origin.middleware";
 
 const router = Router();
 
@@ -33,6 +34,7 @@ router.get(
 
 router.patch(
   "/visibility",
+  requireRepositoryOrigin,
   RateLimit.visibilityRateLimit,
   VisibilityController.updateVisibility
 );
@@ -48,6 +50,7 @@ router.post(
 
 router.patch(
   "/",
+  RateLimit.profileRateLimit,
   MulterCheck.checkMulterErrors,
   SharpCheck.verifyProfilePictureDimensions,
   Validations.modifyPersonalInfo,
@@ -56,6 +59,7 @@ router.patch(
 
 router.patch(
   "/work-experience/:id",
+  RateLimit.profileRateLimit,
   Validations.modifyWorkExperience,
   ProfileController.modifyWorkExperience
 );

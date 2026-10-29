@@ -6,8 +6,8 @@ import * as WorkExpTypes from "../types/work_experience.types";
 export async function existsUser(userId: string) {
   const query = `
     SELECT * FROM "user"
-    WHERE id = $1 AND deleted_at IS NULL`;
-  const values = [userId];
+    WHERE id = $1 AND deleted_at IS NULL AND status = $2`;
+  const values = [userId, ProfileTypes.UserStatus.ACTIVE];
   const userFound = await processReturnQuery(query, values);
   return userFound.length !== 0;
 }
@@ -239,6 +239,7 @@ export async function updateWorkExperience(
 }
 
 export interface PublicProfileRow {
+  id: string;
   handle_name: string;
   name: string;
   first_surname: string;
@@ -247,7 +248,7 @@ export interface PublicProfileRow {
 
 export async function findPublicProfileByHandle(handle: string): Promise<PublicProfileRow | null> {
   const query = `
-    SELECT handle_name, name, first_surname, profile_picture
+    SELECT id, handle_name, name, first_surname, profile_picture
     FROM public."user"
     WHERE LOWER(handle_name) = LOWER($1)
       AND public_link_active = TRUE

@@ -4,6 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "db:repositories:local": "tsx db/scripts/repositories-local.ts",
+    "verify:repositories:local": "tsx db/scripts/verify-repositories-local.ts",
+    "test:repositories:local": "tsx db/scripts/repositories-local.ts --test",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -66,6 +69,7 @@
     "express-rate-limit": "^8.7.1",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.4.0",
+    "octokit": "^5.0.5",
     "pg": "^8.23.1",
     "sharp": "^0.35.5"
   },

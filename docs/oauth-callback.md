@@ -32,7 +32,7 @@ para vincular usar http://localhost:3000/api/v1/auth/github?intent=link
 
 Resultado esperado:
 http://localhost:5173/?oauth=success
-```
+```sql
 SELECT user_id, provider, provider_user_id
 FROM public.external_account
 ORDER BY user_id, provider;

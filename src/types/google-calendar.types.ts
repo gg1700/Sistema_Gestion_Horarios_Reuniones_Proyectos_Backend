@@ -15,3 +15,17 @@ export interface SelectedGoogleCalendar {
   timezone: string;
   status: "connected";
 }
+
+export type GoogleCalendarConnectionStatus = "connected" | "expired" | "disconnected";
+
+export interface GoogleCalendarConnectionInfo {
+  status: GoogleCalendarConnectionStatus;
+  calendarId: string | null;
+  calendarName: string | null;
+  reconnectRequired: boolean;
+}
+
+export interface GoogleCalendarDisconnectResult {
+  status: "disconnected";
+  message: string;
+}

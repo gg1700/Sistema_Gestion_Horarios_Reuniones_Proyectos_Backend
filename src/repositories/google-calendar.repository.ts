@@ -1,7 +1,7 @@
 import type { PoolClient } from "pg";
 import { processReturnQuery, processTransaction } from "../utils/query";
 import type { SelectedGoogleCalendar } from "../types/google-calendar.types";
-
+import { decryptToken } from "../utils/token";
 interface GoogleAccountRow {
   id: string;
   state: string;
@@ -79,5 +79,81 @@ export async function saveSelectedCalendar(
     );
 
     return calendar;
+  });
+}
+
+export interface GoogleCalendarConnectionRow {
+  state: string;
+  scopes: string | null;
+  has_refresh_token: boolean;
+  google_calendar_id: string | null;
+  calendar_name: string | null;
+  calendar_status: string | null;
+}
+
+export async function findGoogleCalendarConnection(userId: string): Promise<GoogleCalendarConnectionRow | null> {
+  const rows = await processReturnQuery(
+    `SELECT ea.state, ea.scopes,
+            (ea.refresh_token IS NOT NULL) AS has_refresh_token,
+            cc.google_calendar_id, cc.name AS calendar_name,
+            cc.status AS calendar_status
+     FROM public.external_account ea
+     LEFT JOIN public.calendar_connection cc ON cc.external_account_id = ea.id
+     WHERE ea.user_id = $1 AND ea.provider = 'google'`,
+    [userId]
+  );
+
+  return (rows[0] as GoogleCalendarConnectionRow) ?? null;
+}
+
+export async function disconnectGoogleCalendar(
+  userId: string,
+  revokeToken: (token: string) => Promise<void>
+): Promise<void> {
+  await processTransaction(async (client: PoolClient) => {
+    const { rows } = await client.query<{
+      id: string;
+      access_token: string;
+      refresh_token: string | null;
+      scopes: string | null;
+    }>(
+      `SELECT id, access_token, refresh_token, scopes
+       FROM public.external_account
+       WHERE user_id = $1 AND provider = 'google'
+       FOR UPDATE`,
+      [userId]
+    );
+
+    const account = rows[0];
+    if (!account) return;
+
+    const scopes = account.scopes?.split(/\s+/).filter(Boolean) ?? [];
+    const hasCalendarScopes = scopes.some(scope =>
+      scope.startsWith("https://www.googleapis.com/auth/calendar.")
+    );
+
+    if (hasCalendarScopes) {
+      const token = account.refresh_token ?? account.access_token;
+      await revokeToken(decryptToken(token));
+    }
+
+    await client.query(
+      `DELETE FROM public.calendar_connection
+       WHERE external_account_id = $1`,
+      [account.id]
+    );
+
+    if (hasCalendarScopes) {
+      await client.query(
+        `UPDATE public.external_account
+         SET refresh_token = NULL,
+             access_expires_at = NULL,
+             scopes = NULL,
+             state = 'revoked',
+             updated_at = NOW()
+         WHERE id = $1`,
+        [account.id]
+      );
+    }
   });
 }

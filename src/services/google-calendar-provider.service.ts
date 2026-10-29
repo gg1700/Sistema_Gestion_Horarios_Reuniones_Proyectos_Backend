@@ -110,3 +110,44 @@ export async function fetchGoogleCalendars(
 
   throw new GoogleCalendarProviderError("google_calendar_unavailable");
 }
+
+export class GoogleCalendarRevocationError extends Error {
+  constructor(public readonly code: "revocation_failed") {
+    super(code);
+    this.name = "GoogleCalendarRevocationError";
+  }
+}
+
+export async function revokeGoogleToken(token: string): Promise<void> {
+  if (!token.trim()) throw new GoogleCalendarRevocationError("revocation_failed");
+
+  let response: Response;
+
+  try {
+    response = await fetch("https://oauth2.googleapis.com/revoke", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json"
+      },
+      body: new URLSearchParams({ token }),
+      signal: AbortSignal.timeout(8000),
+      redirect: "error"
+    });
+  } catch {
+    throw new GoogleCalendarRevocationError("revocation_failed");
+  }
+
+  if (response.ok) return;
+
+  if (response.status === 400) {
+    try {
+      const data = await response.json() as { error?: string };
+      if (data.error === "invalid_token") return;
+    } catch {
+      throw new GoogleCalendarRevocationError("revocation_failed");
+    }
+  }
+
+  throw new GoogleCalendarRevocationError("revocation_failed");
+}

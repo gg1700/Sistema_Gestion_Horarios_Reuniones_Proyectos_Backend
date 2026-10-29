@@ -80,6 +80,15 @@ export async function updateVisibility(userId: string, changes: VisibilityChange
       const table = tables[change.type];
 
       const isUserScoped = userScopedTypes.has(change.type);
+      if (change.type === "repository" && change.visible) {
+        const allowed = await client.query(`SELECT r.id FROM public.repository r
+          WHERE r.user_id = $1 AND r.id = $2 AND r.github_visibility = 'public'
+          AND EXISTS (SELECT 1 FROM public.external_account a WHERE a.user_id = r.user_id
+            AND a.provider = 'github' AND a.state = 'active'
+            AND LOWER(r.url) LIKE 'https://github.com/' || LOWER(a.provider_username) || '/%'
+            AND (a.access_expires_at IS NULL OR a.access_expires_at > NOW())) FOR UPDATE OF r`, [userId, change.id]);
+        if (!allowed.rowCount) throw new VisibilityError("El repositorio no está disponible para publicación", 409);
+      }
       const query = isUserScoped
         ? `UPDATE public.${table} SET visible = $1 WHERE user_id = $2`
         : `UPDATE public.${table} SET visible = $1 WHERE user_id = $2 AND id = $3`;

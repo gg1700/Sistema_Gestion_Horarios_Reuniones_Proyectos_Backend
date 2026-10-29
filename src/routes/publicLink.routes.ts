@@ -3,6 +3,7 @@ import { createPublicLinkController } from "../controllers/publicLink.controller
 import { publicLinkRepository } from "../repositories/publicLink.repository";
 import { PublicLinkService } from "../services/publicLink.service";
 import * as Session from "../middlewares/session.middleware";
+import { requireRepositoryOrigin } from "../middlewares/repository-origin.middleware";
 
 const router = Router();
 
@@ -15,10 +16,10 @@ const controller = createPublicLinkController(
   (req) => req.user?.userId ?? null
 );
 
-router.use(Session.verifySession);
+router.use(Session.verifySession, Session.requireActiveProfileUser);
 
 router.get("/", controller.get);
 router.get("/availability", controller.checkAvailability);
-router.patch("/", controller.update);
+router.patch("/", requireRepositoryOrigin, controller.update);
 
 export default router;

@@ -3,7 +3,6 @@ import { normalizeScopes } from "../repositories/auth-session.repository";
 import { decryptToken } from "../utils/token";
 import { GitHubClient, GitHubClientError } from "../integrations/github/github.client";
 
-// Solo servidor. Nunca entregar ni registrar accessToken en HTTP/logs.
 export async function requireGitHubClient(userId: string) {
   const account = await repository.findGitHubAccount(userId);
   if (!account) throw new GitHubClientError("GITHUB_NOT_CONNECTED", 409, "Vincula GitHub desde tus conexiones.");

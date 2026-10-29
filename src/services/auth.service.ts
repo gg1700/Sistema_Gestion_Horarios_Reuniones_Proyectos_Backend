@@ -36,8 +36,6 @@ export async function viewAccountVinculation(userId: string) {
 export async function revokeAccessAccount(userId: string, provider: string) {
   try {
     return await processTransaction(async client => {
-      // Serializar desvinculaciones del mismo titular: dos peticiones no deben
-      // poder eliminar a la vez sus dos únicas formas de acceso.
       const user = await client.query(`SELECT id FROM public."user" WHERE id = $1 AND deleted_at IS NULL AND status = 'active' FOR UPDATE`, [userId]);
       if (!user.rowCount) return { result: false, statusCode: 404, message: "El usuario no existe" };
       const { rows: accounts } = await client.query(`SELECT * FROM public.external_account WHERE user_id = $1 AND provider IN ('google', 'github')`, [userId]);

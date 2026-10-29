@@ -22,8 +22,6 @@ router.use("/api/v1/profile", ProfileRoutes);
 router.use("/api/v1/auth", AuthRoutes)
 router.use("/api/v1/integrations/google-calendar",GoogleCalendarRoutes);
 router.use("/api/v1/integrations/github", GitHubRoutes);
-// Compatibilidad con el callback que figuraba en el .env anterior.
-// Comparte el controlador y las verificaciones de la ruta canónica.
 router.get("/api/auth/github/callback", authRateLimit, (req, res) => {
   req.params.provider = "github";
   return oauthCallback(req, res);

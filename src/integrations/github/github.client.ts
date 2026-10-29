@@ -9,8 +9,6 @@ export class GitHubClientError extends Error {
 export class GitHubClient {
   constructor(private readonly token: string, private readonly fetcher: typeof fetch = fetch) {}
 
-  // Base para T-39/T-43. Seguir Link usando este cliente; URLs externas nunca
-  // reciben Authorization. No registra token ni cuerpo de errores del proveedor.
   async get<T>(path: string): Promise<{ data: T; headers: Headers }> {
     let url = new URL(path, API_ORIGIN);
     const signal = AbortSignal.timeout(8000);
@@ -41,4 +39,3 @@ export class GitHubClient {
     throw new GitHubClientError("GITHUB_UNAVAILABLE", 502, "GitHub devolvió demasiadas redirecciones.");
   }
 }
-

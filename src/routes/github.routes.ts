@@ -6,14 +6,6 @@ import { GitHubClientError } from "../integrations/github/github.client";
 
 const router = Router();
 router.use(verifySession, requireActiveProfileUser, authRateLimit);
-/*
-GET /api/v1/integrations/github/connection — sin body, sesión del titular.
-200 {"success":true,"data":{"connected":true,"username":"octocat",
-"permissions":{"canReadPublicRepositories":true,"canReadPrivateRepositories":false},
-"checkedAt":"2026-10-28T12:00:00Z"}}
-409 GITHUB_NOT_CONNECTED/GITHUB_REAUTH_REQUIRED; 403 permiso;
-429 con Retry-After; 502 proveedor no disponible. No lista repositorios todavía.
-*/
 router.get("/connection", async (req, res) => {
   res.set("Cache-Control", "no-store");
   try { return res.json({ success: true, data: await verifyGitHubConnection(req.user!.userId) }); }

@@ -52,6 +52,28 @@ async function authorize(provider: "github" | "google", intent: "login" | "link"
 }
 
 describe.skipIf(!enabled)("Fase 1 contra PostgreSQL Docker", () => {
+  it("keeps one profile when GitHub callbacks arrive together and allows a later login", async () => {
+    const clients = [request.agent(app), request.agent(app)];
+    const starts = await Promise.all(clients.map(client => client.get('/api/v1/auth/github').query({ mode: 'json', intent: 'login' })));
+    const callbacks = await Promise.all(clients.map((client, index) => client.get('/api/v1/auth/github/callback').query({
+      code: `github-code-${index}`,
+      state: new URL(starts[index].body.authorizationUrl).searchParams.get('state'),
+    })));
+    const { rows } = await pool.query(`SELECT id FROM public."user" WHERE email = $1`, [marker]);
+    ownerId = rows[0]?.id ?? '';
+    expect(rows).toHaveLength(1);
+    expect(callbacks.map(result => new URL(result.headers.location).searchParams.get('oauth'))).toEqual(['success', 'success']);
+    expect((await clients[0].post('/api/v1/auth/logout')).status).toBe(204);
+    const returning = request.agent(app);
+    const start = await returning.get('/api/v1/auth/github').query({ mode: 'json', intent: 'login' });
+    const callback = await returning.get('/api/v1/auth/github/callback').query({ code: 'returning-code', state: new URL(start.body.authorizationUrl).searchParams.get('state') });
+    expect(new URL(callback.headers.location).searchParams.get('oauth')).toBe('success');
+    const session = await returning.get('/api/v1/auth/session');
+    expect(session.status).toBe(200);
+    expect(session.body.data.profile.id).toBe(ownerId);
+    expect((await pool.query(`SELECT id FROM public."user" WHERE email = $1`, [marker])).rows).toHaveLength(1);
+  });
+
   it("supports GitHub login, verification, both identities, Google login and logout", async () => {
     await authorize("github", "login", true);
     const session = await agent.get("/api/v1/auth/session");

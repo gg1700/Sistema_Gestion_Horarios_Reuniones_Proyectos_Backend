@@ -192,6 +192,10 @@ async function saveInitialDetails(client: PoolClient, userId: string, input: OAu
 export async function resolveAccount(input: OAuthDecisionInput): Promise<OAuthUser> {
   try {
     return await processTransaction(async client => {
+      await client.query(
+        "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+        [`oauth:${input.provider}:${input.profile.id}`]
+      );
       const linked = await findAccount(client, input.provider, input.profile.id);
 
       if (linked) {

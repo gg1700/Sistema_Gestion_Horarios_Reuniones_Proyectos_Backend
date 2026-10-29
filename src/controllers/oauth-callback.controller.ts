@@ -10,6 +10,7 @@ import { isActiveProfileUser } from "../repositories/profile-read.repository";
 import { ConflictError } from "../helpers/errors.helper";
 import { OAuthCallbackError } from "../types/oauth-callback.types";
 import type { OAuthFlow } from "../types/oauth.types";
+import { buildOAuthReturnUrl } from "../services/oauth.service";
 
 interface StoredOAuthFlow extends OAuthFlow {
   intent: "login" | "link";
@@ -18,17 +19,11 @@ interface StoredOAuthFlow extends OAuthFlow {
   returnTo?: string;
 }
 
-function redirectResult(res: Response, status: string, flow?: StoredOAuthFlow): void {
-  const url = new URL(env.FRONTEND_OAUTH_CALLBACK_URL);
-  url.pathname = "/acceso";
-  url.searchParams.set("oauth", status);
-  if (flow) {
-    url.searchParams.set("provider", flow.provider);
-    url.searchParams.set("intent", flow.intent);
-    const allowed = ["/panel", "/perfil/conexiones", "/perfil/conexiones/github", "/bienvenida"];
-    url.searchParams.set("returnTo", flow.returnTo && allowed.includes(flow.returnTo) ? flow.returnTo : flow.intent === "link" ? "/perfil/conexiones" : "/panel");
+function redirectResult(res: Response, status: string, flow?: StoredOAuthFlow, stage = "state"): void {
+  if (status !== "success") {
+    console.warn("OAuth callback rejected", { provider: flow?.provider, stage, result: status });
   }
-  res.redirect(302, url.toString());
+  res.redirect(302, buildOAuthReturnUrl(status, flow));
 }
 
 function validState(received: string, expected: string): boolean {
@@ -105,6 +100,7 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
     return;
   }
 
+  let stage = "session";
   try {
     if (flow.intent === "link") {
       const token = req.signedCookies?.session;
@@ -130,9 +126,12 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       }
     }
 
+    stage = "token_exchange";
     const tokens = await exchangeCode(provider, code, flow.codeVerifier);
+    stage = "provider_profile";
     const profile = await getProviderProfile(provider, tokens.accessToken);
 
+    stage = "account_resolution";
     const { session } = await resolveOAuthIdentity({
       provider,
       profile,
@@ -152,16 +151,16 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
     redirectResult(res, "success", flow);
   } catch (error) {
     if (error instanceof OAuthCallbackError) {
-      redirectResult(res, error.code, flow);
+      redirectResult(res, error.code, flow, stage);
       return;
     }
 
     if (error instanceof ConflictError) {
-      redirectResult(res, error.message, flow);
+      redirectResult(res, error.message, flow, stage);
       return;
     }
 
-    console.error("OAuth callback processing failed");
-    redirectResult(res, "internal_error");
+    console.error("OAuth callback processing failed", { provider, stage, errorType: error instanceof Error ? error.name : "unknown" });
+    redirectResult(res, "internal_error", flow, stage);
   }
 }

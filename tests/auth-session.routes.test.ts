@@ -10,6 +10,8 @@ vi.mock("../src/repositories/auth-session.repository", () => ({
 vi.mock("../src/repositories/profile-read.repository", () => ({ isActiveProfileUser: mocks.isActiveProfileUser }));
 import { app } from "../src/config/server.config";
 import { createSession } from "../src/services/session.service";
+import { sign } from "cookie-signature";
+import { env } from "../src/config/env.config";
 
 const profile = { id: "11111111-1111-4111-8111-111111111111", handleName: "ana-perez", name: "Ana", firstSurname: "Perez", email: "ana@test.example", profilePicture: null, requiresProfileCompletion: false };
 const authorization = () => "Bearer " + createSession(profile.id, profile.handleName).token;
@@ -19,6 +21,25 @@ beforeEach(() => {
   mocks.isActiveProfileUser.mockResolvedValue(true); mocks.updateSessionProfile.mockResolvedValue(true);
 });
 describe("OAuth session boundary", () => {
+  it("reuses a valid browser session instead of requesting another GitHub token", async () => {
+    const token = createSession(profile.id, profile.handleName).token;
+    const cookie = 'session=' + encodeURIComponent('s:' + sign(token, env.COOKIE_SECRET));
+    const response = await request(app).get('/api/v1/auth/github').set('Cookie', cookie).query({ returnTo: '/panel' });
+    expect(response.status).toBe(302);
+    const destination = new URL(response.headers.location);
+    expect(destination.origin).toBe(new URL(env.FRONTEND_OAUTH_CALLBACK_URL).origin);
+    expect(destination.pathname).toBe('/acceso');
+    expect(destination.searchParams.get('oauth')).toBe('success');
+    expect(destination.searchParams.get('returnTo')).toBe('/panel');
+  });
+
+  it("expires the legacy flow cookie before starting authorization", async () => {
+    const response = await request(app).get('/api/v1/auth/github').query({ mode: 'json' });
+    const cookies = response.headers['set-cookie'] as unknown as string[];
+    expect(cookies.some(cookie => cookie.startsWith('oauth_flow=;') && cookie.includes('Path=/api/v1/auth;'))).toBe(true);
+    expect(cookies.some(cookie => cookie.startsWith('oauth_flow=s%3A') && cookie.includes('Path=/api;'))).toBe(true);
+  });
+
   it("does not accept a query userId as authentication", async () => {
     for (const path of ["/api/v1/auth/session", "/api/v1/auth/accounts", "/api/v1/integrations/github/connection"]) {
       expect((await request(app).get(path).query({ userId: profile.id })).status).toBe(401);

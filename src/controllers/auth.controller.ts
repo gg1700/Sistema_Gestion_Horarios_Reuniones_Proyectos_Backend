@@ -4,9 +4,10 @@ import * as GeneralValidations from "../validators/general.validator";
 import * as AuthService from "../services/auth.service";
 import * as OAuthService from "../services/oauth.service";
 import * as SessionService from "../services/session.service";
+import { readAuthSession } from "../services/auth-session.service";
 import { isActiveProfileUser } from "../repositories/profile-read.repository";
 import { validateProvider } from "../validators/oauth.validator";
-import { ValidationError } from "../helpers/errors.helper";
+import { AuthenticationError, ValidationError } from "../helpers/errors.helper";
 import { env } from "../config/env.config";
 
 export async function viewAccountVinculation(req: Request, res: Response) {
@@ -77,6 +78,7 @@ export async function revokeAccessAccount(req: Request, res: Response) {
 }
 
 export async function startAuthorization(req: Request, res: Response): Promise<void> {
+  res.set("Cache-Control", "no-store");
   try {
     const provider = validateProvider(req.params.provider);
     const intent = req.query.intent === undefined ? "login" : req.query.intent;
@@ -87,6 +89,30 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
     }
 
     let userId: string | null = null;
+    const returnTo = typeof req.query.returnTo === "string" && ["/panel", "/perfil/conexiones", "/perfil/conexiones/github", "/bienvenida"].includes(req.query.returnTo)
+      ? req.query.returnTo : intent === "link" ? "/perfil/conexiones" : "/panel";
+
+    res.clearCookie("oauth_flow", {
+      httpOnly: true, secure: env.NODE_ENV === "production", sameSite: "lax", path: "/api/v1/auth",
+    });
+
+    if (intent === "login" && typeof req.signedCookies?.session === "string") {
+      try {
+        const sessionUser = SessionService.verifySession(req.signedCookies.session);
+        const session = await readAuthSession(sessionUser.userId);
+        if (session.accounts.some(account => account.provider === provider)) {
+          res.clearCookie("oauth_flow", {
+            httpOnly: true, secure: env.NODE_ENV === "production", sameSite: "lax", path: "/api",
+          });
+          const authorizationUrl = OAuthService.buildOAuthReturnUrl("success", { provider, intent, returnTo });
+          if (req.query.mode === "json") res.status(200).json({ authorizationUrl });
+          else res.redirect(302, authorizationUrl);
+          return;
+        }
+      } catch (error) {
+        if (!(error instanceof AuthenticationError)) throw error;
+      }
+    }
 
     if (intent === "link") {
       const token = req.signedCookies?.session;
@@ -119,8 +145,6 @@ export async function startAuthorization(req: Request, res: Response): Promise<v
     }
 
     const { authorizationUrl, flow } = OAuthService.generateAuthorization(provider);
-    const returnTo = typeof req.query.returnTo === "string" && ["/panel", "/perfil/conexiones", "/perfil/conexiones/github", "/bienvenida"].includes(req.query.returnTo)
-      ? req.query.returnTo : intent === "link" ? "/perfil/conexiones" : "/panel";
 
     res.cookie("oauth_flow", JSON.stringify({
       ...flow,

@@ -4,8 +4,6 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "db:local:up": "docker compose -f compose.github.local.yaml up -d --wait",
-    "db:local:migrate": "tsx db/scripts/setup-local.ts",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
@@ -14,7 +12,6 @@
     "build": "tsc",
     "start": "node dist/app.js",
     "test": "vitest run",
-    "test:auth:local": "tsx db/scripts/test-auth-local.ts",
     "test:auth:unit": "vitest run tests/auth-session.routes.test.ts tests/auth.register.test.ts tests/github.client.test.ts tests/github-connection.service.test.ts tests/oauth-callback.controller.test.ts tests/oauth-callback.service.test.ts tests/oauth-callback.repository.test.ts tests/oauth-decision.service.test.ts tests/oauth-decision.repository.test.ts tests/public-profile-filter.test.ts tests/google-token.service.test.ts tests/google-token-provider.service.test.ts tests/account-revocation.test.ts",
     "migrate-db": "tsx db/scripts/migrate.ts",
     "reset-db": "tsx db/scripts/reset.ts",

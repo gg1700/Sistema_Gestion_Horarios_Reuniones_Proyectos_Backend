@@ -48,6 +48,7 @@ router.post(
 
 router.patch(
   "/",
+  RateLimit.profileRateLimit,
   MulterCheck.checkMulterErrors,
   SharpCheck.verifyProfilePictureDimensions,
   Validations.modifyPersonalInfo,
@@ -56,6 +57,7 @@ router.patch(
 
 router.patch(
   "/work-experience/:id",
+  RateLimit.profileRateLimit,
   Validations.modifyWorkExperience,
   ProfileController.modifyWorkExperience
 );

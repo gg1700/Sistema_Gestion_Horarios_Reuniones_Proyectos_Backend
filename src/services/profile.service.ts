@@ -10,6 +10,7 @@ import * as ImageService from "./image.service";
 import * as WorkExpTypes from "../types/work_experience.types";
 import { today, tody60YearsAgo } from "../utils/constants/date.constants";
 import { filterPublicProfile } from "./public-profile-filter.service";
+import { findPublicRepositories } from "../repositories/github-repository.repository";
 
 export async function getOwnProfile(userId: string): Promise<Profile> {
   const profile = await ProfileReadRepo.findOwnProfile(userId);
@@ -213,6 +214,7 @@ export async function getPublicProfile(handle: string) {
     countries: profile.countries,
     workExperiences: profile.work_experiences,
     links: profile.links,
+    repositories: await findPublicRepositories(user.id),
   });
 
   return {

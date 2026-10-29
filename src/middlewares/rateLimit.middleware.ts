@@ -30,3 +30,4 @@ export const deleteAccountRateLimit = createRateLimit(5);
 
 export const authRateLimit = createRateLimit(20);
 export const googleCalendarRateLimit = createRateLimit(30);
+export const availabilityRulesRateLimit = createRateLimit(30);

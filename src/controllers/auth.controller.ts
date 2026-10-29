@@ -11,7 +11,7 @@ import { env } from "../config/env.config";
 
 export async function viewAccountVinculation(req: Request, res: Response) {
   try {
-    const { userId } = req.user as TokenTypes.TokenPayload || req.query;
+    const { userId } = req.user as TokenTypes.TokenPayload;
     const validatedUserId = GeneralValidations.validateId(userId);
 
     const { result, statusCode, message, data } = await AuthService.viewAccountVinculation(validatedUserId);
@@ -59,7 +59,7 @@ export async function completeRegistration(req: Request, res: Response) {
 
 export async function revokeAccessAccount(req: Request, res: Response) {
   try {
-    const { userId } = req.user as TokenTypes.TokenPayload || req.query;
+    const { userId } = req.user as TokenTypes.TokenPayload;
     const provider = req.params.provider;
     
     const validatedUserId = GeneralValidations.validateId(userId);

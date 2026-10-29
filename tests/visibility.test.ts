@@ -1,242 +1,284 @@
 import request from "supertest";
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 import { randomUUID } from "node:crypto";
 import { app } from "../src/config/server.config";
-import pool from "../src/config/database.config";
+import pool, {
+  getConectionString,
+} from "../src/config/database.config";
 import { createSession } from "../src/services/session.service";
 
 const route = "/api/v1/profile/visibility";
 
 const userA = randomUUID();
 const userB = randomUUID();
+const userIds = [userA, userB];
+const repositoryId = randomUUID();
 
 const handleA = `test-visibility-a-${userA.slice(0, 8)}`;
 const handleB = `test-visibility-b-${userB.slice(0, 8)}`;
 
 let authorization = "";
+let cleanupAllowed = false;
 
-// Crear usuarios directamente en la base de pruebas
 async function createUser(id: string, handleName: string) {
   await pool.query(
-    `INSERT INTO public."user"
-      (
-        id,
-        handle_name,
-        name,
-        first_surname,
-        email,
-        profile_picture,
-        status,
-        created_at,
-        updated_at
-      )
+    `INSERT INTO public."user" (
+       id,
+       handle_name,
+       name,
+       first_surname,
+       email,
+       profile_picture,
+       status,
+       created_at,
+       updated_at
+     )
      VALUES (
-        $1,
-        $2,
-        'Usuario',
-        'Prueba',
-        $3,
-        $4,
-        'active',
-        CURRENT_DATE,
-        CURRENT_DATE
+       $1, $2, 'Usuario', 'Prueba', $3, NULL,
+       'active', NOW(), NOW()
      )`,
-    [
-      id,
-      handleName,
-      `${handleName}@example.com`,
-      Buffer.alloc(0)
-    ]
+    [id, handleName, `${handleName}@example.test`],
   );
 }
 
-// Eliminar los usuarios temporales
 async function cleanup() {
-  // Eliminar primero los registros relacionados con los usuarios
-  await pool.query(
-    `DELETE FROM public.user_surname
-     WHERE user_id = ANY($1::uuid[])`,
-    [[userA, userB]]
-  );
-
-  // Eliminar los usuarios
   await pool.query(
     `DELETE FROM public."user"
      WHERE id = ANY($1::uuid[])`,
-    [[userA, userB]]
+    [userIds],
   );
 }
 
 describe("GET y PATCH /api/v1/profile/visibility", () => {
-
   beforeAll(async () => {
-
-    // Verificar que utilizamos exclusivamente la base de pruebas
-    const database = await pool.query(
-      "SELECT current_database() AS name"
-    );
+    const target = new URL(getConectionString() ?? "");
 
     if (
       process.env.NODE_ENV !== "test" ||
-      database.rows[0].name !== "orbita_t15_test"
+      !["localhost", "127.0.0.1"].includes(target.hostname) ||
+      target.pathname !== "/orbita_db"
     ) {
       throw new Error(
-        "Estas pruebas solo pueden ejecutarse con NODE_ENV=test y orbita_t15_test"
+        "Estas pruebas requieren NODE_ENV=test y orbita_db en localhost",
       );
     }
 
-    // Crear los dos usuarios temporales
+    const database = await pool.query(
+      "SELECT current_database() AS name",
+    );
+
+    if (database.rows[0].name !== "orbita_db") {
+      throw new Error("La base conectada no es orbita_db");
+    }
+
+    const requiredTables = [
+      "user",
+      "user_surname",
+      "user_email",
+      "user_phone",
+      "address",
+      "user_country",
+      "workexperience",
+      "link",
+      "repository",
+      "github_activity_list",
+      "github_activity_grid",
+    ];
+
+    const tables = await pool.query<{
+      name: string;
+      relation: string | null;
+    }>(
+      `SELECT
+         name,
+         to_regclass('public.' || quote_ident(name))::text AS relation
+       FROM unnest($1::text[]) AS required(name)`,
+      [requiredTables],
+    );
+
+    const missing = tables.rows
+      .filter((table) => table.relation === null)
+      .map((table) => table.name);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `Faltan tablas requeridas por T-15: ${missing.join(", ")}`,
+      );
+    }
+
+    cleanupAllowed = true;
+
     await createUser(userA, handleA);
     await createUser(userB, handleB);
 
-    // Crear apellido para el usuario A
     await pool.query(
       `INSERT INTO public.user_surname
-       (user_id, surname, visible)
-       VALUES ($1, 'ApellidoUsuarioA', false)`,
-      [userA]
+         (user_id, surname, visible)
+       VALUES
+         ($1, 'ApellidoUsuarioA', false),
+         ($2, 'ApellidoUsuarioB', false)`,
+      [userA, userB],
     );
 
-    // Crear apellido para el usuario B
     await pool.query(
-      `INSERT INTO public.user_surname
-       (user_id, surname, visible)
-       VALUES ($1, 'ApellidoUsuarioB', false)`,
-      [userB]
+      `INSERT INTO public.repository (
+         id, user_id, github_repo_id, name, url, visible
+       )
+       VALUES (
+         $1, $2, 1001, 'repositorio-prueba',
+         'https://github.com/example/repositorio-prueba',
+         false
+       )`,
+      [repositoryId, userA],
     );
 
-    // Generar JWT para el usuario A
+    await pool.query(
+      `INSERT INTO public.github_activity_list (user_id, visible)
+       VALUES ($1, false)`,
+      [userA],
+    );
+
     authorization = `Bearer ${createSession(userA, handleA).token}`;
   });
 
-  afterAll(async () => {
-
-    // Verificar la base antes de eliminar los datos
-    const database = await pool.query(
-      "SELECT current_database() AS name"
+  beforeEach(async () => {
+    await pool.query(
+      `UPDATE public.user_surname
+       SET visible = false
+       WHERE user_id = ANY($1::uuid[])`,
+      [userIds],
     );
 
-    if (
-      process.env.NODE_ENV === "test" &&
-      database.rows[0].name === "orbita_t15_test"
-    ) {
-      await cleanup();
+    await pool.query(
+      `UPDATE public.repository
+       SET visible = false
+       WHERE id = $1 AND user_id = $2`,
+      [repositoryId, userA],
+    );
+
+    await pool.query(
+      `UPDATE public.github_activity_list
+       SET visible = false
+       WHERE user_id = $1`,
+      [userA],
+    );
+  });
+
+  afterAll(async () => {
+    try {
+      if (cleanupAllowed) {
+        await cleanup();
+      }
+    } finally {
+      await pool.end();
     }
-
-    await pool.end();
   });
 
-  // PRUEBA 1: GET sin autenticación
-  it("GET sin sesion devuelve 401", async () => {
-
-    const response = await request(app)
-      .get(route);
-
-    expect(response.status).toBe(401);
+  it("GET sin sesión devuelve 401", async () => {
+    await request(app)
+      .get(route)
+      .expect(401);
   });
 
-  // PRUEBA 2: GET con autenticación y valores predeterminados
-  it("GET con sesion muestra GitHub oculto por defecto", async () => {
-
+  it("GET devuelve los registros configurados como ocultos", async () => {
     const response = await request(app)
       .get(route)
-      .set("Authorization", authorization);
+      .set("Authorization", authorization)
+      .expect(200);
 
-    expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
 
     expect(response.body.data).toEqual(
       expect.arrayContaining([
         {
-          type: "repositories",
-          visible: false
+          type: "repository",
+          id: repositoryId,
+          visible: false,
         },
         {
-          type: "githubActivity",
-          visible: false
-        }
-      ])
+          type: "githubActivityList",
+          id: userA,
+          visible: false,
+        },
+      ]),
     );
   });
 
-  // PRUEBA 3: PATCH con múltiples cambios
-  it("PATCH actualiza dos secciones y GET confirma persistencia", async () => {
-
+  it("PATCH actualiza dos registros y GET confirma persistencia", async () => {
     const response = await request(app)
       .patch(route)
       .set("Authorization", authorization)
       .send({
         changes: [
           {
-            type: "repositories",
-            visible: true
+            type: "repository",
+            id: repositoryId,
+            visible: true,
           },
           {
-            type: "githubActivity",
-            visible: true
-          }
-        ]
-      });
+            type: "githubActivityList",
+            id: userA,
+            visible: true,
+          },
+        ],
+      })
+      .expect(200);
 
-    expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
 
-    // Comprobar que los cambios se guardaron
     const getResponse = await request(app)
       .get(route)
-      .set("Authorization", authorization);
-
-    expect(getResponse.status).toBe(200);
+      .set("Authorization", authorization)
+      .expect(200);
 
     expect(getResponse.body.data).toEqual(
       expect.arrayContaining([
         {
-          type: "repositories",
-          visible: true
+          type: "repository",
+          id: repositoryId,
+          visible: true,
         },
         {
-          type: "githubActivity",
-          visible: true
-        }
-      ])
+          type: "githubActivityList",
+          id: userA,
+          visible: true,
+        },
+      ]),
     );
   });
 
-  // PRUEBA 4: Tipo inválido
   it("PATCH rechaza tipos no permitidos", async () => {
-
-    const response = await request(app)
+    await request(app)
       .patch(route)
       .set("Authorization", authorization)
       .send({
         changes: [
           {
             type: "password",
-            visible: true
-          }
-        ]
-      });
-
-    expect(response.status).toBe(400);
+            visible: true,
+          },
+        ],
+      })
+      .expect(400);
   });
 
-  // PRUEBA 5: Lista vacía
-  it("PATCH rechaza una lista vacia", async () => {
-
-    const response = await request(app)
+  it("PATCH rechaza una lista vacía", async () => {
+    await request(app)
       .patch(route)
       .set("Authorization", authorization)
-      .send({
-        changes: []
-      });
-
-    expect(response.status).toBe(400);
+      .send({ changes: [] })
+      .expect(400);
   });
 
-  // PRUEBA 6: Intentar modificar el apellido de otro usuario
   it("PATCH rechaza cambiar el apellido de otro usuario", async () => {
-
-    const response = await request(app)
+    await request(app)
       .patch(route)
       .set("Authorization", authorization)
       .send({
@@ -244,79 +286,68 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
           {
             type: "surname",
             id: userB,
-            visible: true
-          }
-        ]
-      });
+            visible: true,
+          },
+        ],
+      })
+      .expect(400);
 
-    expect(response.status).toBe(400);
-
-    // Verificar que el apellido del usuario B no cambió
     const result = await pool.query(
       `SELECT visible
        FROM public.user_surname
        WHERE user_id = $1`,
-      [userB]
+      [userB],
     );
 
     expect(result.rows[0].visible).toBe(false);
   });
 
-  // PRUEBA 7: Verificar rollback
-  it("PATCH hace rollback si falla el segundo cambio", async () => {
-
-    const response = await request(app)
+  it("PATCH revierte el primer cambio si falla el segundo", async () => {
+    await request(app)
       .patch(route)
       .set("Authorization", authorization)
       .send({
         changes: [
           {
-            type: "repositories",
-            visible: false
+            type: "surname",
+            id: userA,
+            visible: true,
           },
           {
             type: "email",
             id: randomUUID(),
-            visible: true
-          }
-        ]
-      });
+            visible: true,
+          },
+        ],
+      })
+      .expect(404);
 
-    // El segundo cambio debe fallar
-    expect(response.status).toBe(404);
+    const result = await pool.query(
+      `SELECT visible
+       FROM public.user_surname
+       WHERE user_id = $1`,
+      [userA],
+    );
+
+    expect(result.rows[0].visible).toBe(false);
   });
 
-  // PRUEBA 8: PATCH sin autenticación
-  it("PATCH sin sesion devuelve 401", async () => {
-
-    const response = await request(app)
+  it("PATCH sin sesión devuelve 401", async () => {
+    await request(app)
       .patch(route)
       .send({
         changes: [
           {
-            type: "repositories",
-            visible: false
-          }
-        ]
-      });
-
-    expect(response.status).toBe(401);
+            type: "surname",
+            id: userA,
+            visible: true,
+          },
+        ],
+      })
+      .expect(401);
   });
 
-  // PRUEBA 9: Actualizar la visibilidad de un campo real del perfil
-  it("PATCH actualiza la visibilidad del apellido del usuario", async () => {
-
-    // Verificar que inicialmente el apellido está oculto
-    const initialResult = await pool.query(
-      `SELECT visible
-       FROM public.user_surname
-       WHERE user_id = $1`,
-      [userA]
-    );
-
-    expect(initialResult.rows[0].visible).toBe(false);
-
-    // Actualizar la visibilidad mediante PATCH
+  it("PATCH guarda la visibilidad del apellido del usuario", async () => {
     const response = await request(app)
       .patch(route)
       .set("Authorization", authorization)
@@ -325,43 +356,36 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
           {
             type: "surname",
             id: userA,
-            visible: true
-          }
-        ]
-      });
+            visible: true,
+          },
+        ],
+      })
+      .expect(200);
 
-    // Verificar respuesta del endpoint
-    expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
 
-    // Consultar directamente PostgreSQL
     const result = await pool.query(
       `SELECT visible
        FROM public.user_surname
        WHERE user_id = $1`,
-      [userA]
+      [userA],
     );
 
-    // Confirmar que se guardó el cambio
     expect(result.rows[0].visible).toBe(true);
 
-    // Consultar nuevamente mediante GET
     const getResponse = await request(app)
       .get(route)
-      .set("Authorization", authorization);
+      .set("Authorization", authorization)
+      .expect(200);
 
-    expect(getResponse.status).toBe(200);
-
-    // Confirmar que GET devuelve el apellido visible
     expect(getResponse.body.data).toEqual(
       expect.arrayContaining([
         {
           type: "surname",
           id: userA,
-          visible: true
-        }
-      ])
+          visible: true,
+        },
+      ]),
     );
   });
-
 });

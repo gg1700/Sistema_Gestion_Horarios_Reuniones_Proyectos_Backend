@@ -150,7 +150,7 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       return;
     }
 
-    console.error("OAuth callback processing failed");
+    console.error("OAuth callback processing failed", error);
     redirectResult(res, "internal_error");
   }
 }

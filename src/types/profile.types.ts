@@ -143,3 +143,8 @@ export interface AdditionalInfoDB {
   countries?: NewCountryDB[];
   work_experiences?: NewWorkExperienceDB[];
 }
+
+export enum UserStatus {
+  ACTIVE = "active",
+  INACTIVE = "inactive"
+}

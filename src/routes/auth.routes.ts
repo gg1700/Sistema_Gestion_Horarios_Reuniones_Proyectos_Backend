@@ -9,12 +9,16 @@ const router = Router();
 
 router.get(
   "/accounts",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
   AuthController.viewAccountVinculation
 );
 
 router.delete(
   "/accounts/:provider",
   RateLimit.authRateLimit,
+  Session.verifySession,
+  Session.requireActiveProfileUser,
   AuthController.revokeAccessAccount
 );
 

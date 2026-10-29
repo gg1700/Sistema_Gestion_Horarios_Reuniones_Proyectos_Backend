@@ -23,7 +23,8 @@ export async function getOwnProfile(req: Request, res: Response<ProfileResponse>
 
 export async function modifyPersonalInfo(req: Request, res: Response) {
   try {
-    const { userId } = (req.user as TokenTypes.TokenPayload) || req.query;
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
 
     if ((!req.body || Object.keys(req.body).length === 0) && !req.file) {
       return res.status(400).json({
@@ -32,7 +33,7 @@ export async function modifyPersonalInfo(req: Request, res: Response) {
       });
     }
     
-    const { result, statusCode, message } = await ProfileService.modifyPersonalInfo(userId, req.body, req.file);
+    const { result, statusCode, message } = await ProfileService.modifyPersonalInfo(validatedUserId, req.body, req.file);
     if (!result) return res.status(statusCode).json({ success: result, message: message });
     return res.status(200).json({
       success: true,
@@ -48,7 +49,7 @@ export async function modifyPersonalInfo(req: Request, res: Response) {
 
 export async function modifyWorkExperience(req: Request, res: Response) {
   try {
-    const { userId } = (req.user as TokenTypes.TokenPayload) || req.query;
+    const { userId } = req.user as TokenTypes.TokenPayload;
     const id = req.params.id;
 
     const validatedUserId = GeneralValidations.validateId(userId);

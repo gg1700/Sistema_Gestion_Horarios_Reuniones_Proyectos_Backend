@@ -187,6 +187,67 @@ export async function modifyWorkExperience(
   }
 }
 
+function publicActivityList(raw: string | null) {
+  if (!raw) return [];
+
+  try {
+    const data: unknown = JSON.parse(raw);
+    if (!Array.isArray(data)) return [];
+
+    return data.slice(0, 20).flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+
+      const event = item as Record<string, unknown>;
+      if (typeof event.type !== "string") return [];
+
+      const repo = event.repo && typeof event.repo === "object"
+        ? (event.repo as Record<string, unknown>).name
+        : null;
+
+      const repository = typeof repo === "string" ? repo : "";
+      const date = typeof event.date === "string" ? event.date : "";
+
+      return [{
+        activity: JSON.stringify({
+          type: event.type,
+          repository,
+          date
+        }),
+        visible: true
+      }];
+    });
+  } catch {
+    return [];
+  }
+}
+
+function publicActivityGrid(raw: string | null) {
+  if (!raw) return [];
+
+  try {
+    const data: unknown = JSON.parse(raw);
+
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      return [];
+    }
+
+    const grid = data as Record<string, unknown>;
+
+    if (typeof grid.totalContributions !== "number") {
+      return [];
+    }
+
+    return [{
+      activity: JSON.stringify({
+        totalContributions: grid.totalContributions
+      }),
+      visible: true
+    }];
+  } catch {
+    return [];
+  }
+}
+
 export async function getPublicProfile(handle: string) {
   const user = await ProfileRepo.findPublicProfileByHandle(handle);
 
@@ -201,6 +262,13 @@ export async function getPublicProfile(handle: string) {
   }
 
   const sectionVisibility = await findSectionVisibility(user.id);
+  const github = await ProfileRepo.findPublicGitHubState(user.id);
+
+  const repositories = sectionVisibility.repositories && github.githubConnected
+    ? await findPublicRepositories(user.id)
+    : [];
+
+  const showActivity = sectionVisibility.githubActivity && github.githubConnected;
 
   const publicProfile = filterPublicProfile({
     id: profile.id,
@@ -218,14 +286,18 @@ export async function getPublicProfile(handle: string) {
     workExperiences: profile.work_experiences,
     links: profile.links,
     sectionVisibility,
-    repositories: sectionVisibility.repositories
-      ? await findPublicRepositories(user.id)
+    repositories,
+    githubActivityList: showActivity
+      ? publicActivityList(github.activityList)
       : [],
+    githubActivityGrid: showActivity
+      ? publicActivityGrid(github.activityGrid)
+      : []
   });
 
   return {
     ...publicProfile,
-    firstLastName: publicProfile.firstSurname,
+    firstLastName: publicProfile.firstSurname
   };
 }
 

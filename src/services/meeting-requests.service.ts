@@ -78,12 +78,12 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
 
       const newMeetingRequest = await MeetingReqRepo.createMeetingRequest(userId, recipientUserId, formatedInfo, client);
       if (!newMeetingRequest || newMeetingRequest.length === 0)
-        return { result: false, statusCode: 500, message: "Error al registrar solicitud de reunion" };
+        throw new ServerError("Error al registrar solicitud de reunion");
 
       const requestId = newMeetingRequest[0].id;
       const notification = await MeetingReqRepo.createNotification(recipientUserId, userId, requestId, formatedInfo, client);
       if (!notification || notification.length === 0)
-        return { result: false, statusCode: 500, message: "Error al crear notificacion de solicitud de reunion" };
+        throw new ServerError("Error al crear notificacion de solicitud de reunion");
 
       const formatedData = Mapper.meetingRequestToResponse(newMeetingRequest[0]);
       return {

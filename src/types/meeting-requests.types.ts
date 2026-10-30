@@ -88,3 +88,19 @@ export interface ListedRequestsRows {
   resolved_at: Date | null;
   owner_response_message?: string | null
 }
+
+export interface UpdateMeetingRequest {
+  title?: string;
+  message?: string | null;
+  startsAt?: Date;
+  endsAt?: Date;
+  timeZone?: string;
+}
+
+export interface UpdateMeetingRequestDB {
+  title?: string;
+  message?: string | null;
+  requested_start_at?: Date;
+  requested_end_at?: Date;
+  timezone?: string;
+}

@@ -22,4 +22,12 @@ router.get(
   MeetingReqController.listSentMeetingRequests
 );
 
+router.patch(
+  "/:requestId",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  Validations.updateMeetingRequest,
+  MeetingReqController.updateMeetingRequest
+);
+
 export default router;

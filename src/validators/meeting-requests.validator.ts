@@ -56,3 +56,38 @@ export function validateMeetingReqInfo(payload: unknown) {
   if (p.message !== undefined) proccessedInfo.message = validateMessage(p.message);
   return proccessedInfo;
 }
+
+export function validateUpdateMeetingRequest(payload: unknown) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  const allowedFields = ["title", "message", "startsAt", "endsAt", "timeZone"];
+  Object.keys(p).forEach((field) => {
+    if (!allowedFields.includes(field))
+      throw new ValidationError(`Campo no permitido: ${field}`);
+  });
+  if (Object.keys(p).length === 0)
+    throw new ValidationError("Informacion a modificar no especificada");
+  const processedInfo: MeetingReqTypes.UpdateMeetingRequest = {};
+  if (p.title !== undefined) processedInfo.title = GeneralValidations.validateProperNoun(p.title, "Titulo de la reunion");
+  if (p.message !== undefined) processedInfo.message = (p.message === null) ? null : validateMessage(p.message);
+  if ((p.startsAt !== undefined) !== (p.endsAt !== undefined))
+    throw new ValidationError("Debe especificar tanto la fecha de inicio como la de finalizacion");
+  if (p.startsAt !== undefined && p.endsAt !== undefined) {
+    processedInfo.startsAt = GeneralValidations.validateDate(p.startsAt, "Hora de inicio");
+    processedInfo.endsAt = GeneralValidations.validateDate(p.endsAt, "Hora de finalizacion");
+
+    if (processedInfo.startsAt.getTime() <= Date.now())
+      throw new ValidationError("La fecha de inicio debe ser futura");
+    if (processedInfo.endsAt <= processedInfo.startsAt)
+      throw new ValidationError("La fecha de finalizacion debe ser posterior al inicio");
+  }
+  if (p.timeZone !== undefined) processedInfo.timeZone = validateTimezone(p.timeZone);
+
+  return processedInfo;
+}
+
+export function validateMeetingRequestId(requestId: unknown) {
+  if (typeof requestId !== "string" || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(requestId)) {
+    throw new ValidationError("Id de solicitud de reunion invalido");
+  }
+  return requestId;
+}

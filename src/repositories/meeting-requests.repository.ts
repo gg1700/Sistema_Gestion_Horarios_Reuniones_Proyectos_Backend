@@ -152,3 +152,85 @@ export async function listRequests(
   const sentRequests = await processReturnQuery(query, values);
   return sentRequests;
 }
+
+export async function findRequestForRequester(requestId: string, userId: string, client: PoolClient) {
+  const query = `SELECT id, requester_user_id, recipient_user_id,
+    requested_start_at, requested_end_at, timezone, title, message, status
+    FROM "meeting_request"
+    WHERE id = $1 AND requester_user_id = $2
+    FOR UPDATE`;
+  const values = [requestId, userId];
+  const requestFound = await client.query(query, values);
+  return requestFound.rows;
+}
+
+export async function hasPublicCalendarActiveWithClient(userId: string, client: PoolClient) {
+  const query = `SELECT active FROM "public_calendar_link"
+    WHERE user_id = $1 AND active = $2`;
+  const values = [userId, true];
+  const calendarLink = await client.query(query, values);
+  return calendarLink.rows.length !== 0;
+}
+
+export async function findRecipientTimezoneWithClient(recipientUserId: string, client: PoolClient) {
+  const query = `SELECT timezone FROM "calendar_settings"
+    WHERE user_id = $1`;
+  const values = [recipientUserId];
+  const recipientTimezone = await client.query(query, values);
+  return recipientTimezone.rows;
+}
+
+export async function findOtherPendingRequests(
+  recipientUserId: string,
+  requestId: string,
+  startAt: Date,
+  endsAt: Date,
+  client: PoolClient) {
+  const query = `SELECT id, requested_start_at, requested_end_at
+    FROM "meeting_request"
+    WHERE recipient_user_id = $1 AND id <> $2 AND requested_start_at < $4
+    AND requested_end_at > $3 AND status = $5`;
+  const values = [
+    recipientUserId,
+    requestId,
+    startAt,
+    endsAt,
+    MeetingReqTypes.MeetingRequestStatus.PENDING
+  ];
+  const pendingRequests = await client.query(query, values);
+  return pendingRequests.rows;
+}
+
+export async function updatePendingRequest(
+  requestId: string,
+  userId: string,
+  requestInfo: MeetingReqTypes.UpdateMeetingRequestDB,
+  client: PoolClient) {
+  const fields: string[] = [];
+  const values: unknown[] = [requestId, userId];
+  const allowedFields: Record<string, string> = {
+    title: "title",
+    message: "message",
+    requested_start_at: "requested_start_at",
+    requested_end_at: "requested_end_at",
+    timezone: "timezone"
+  };
+
+  for (const [field, value] of Object.entries(requestInfo)) {
+    const column = allowedFields[field];
+    if (column !== undefined && value !== undefined) {
+      values.push(value);
+      fields.push(`${column} = $${values.length}`);
+    }
+  }
+  if (fields.length === 0) return [];
+
+  const query = `UPDATE "meeting_request"
+    SET ${fields.join(", ")}
+    WHERE id = $1 AND requester_user_id = $2 AND status = $${values.length + 1}
+    RETURNING id, title, message, requested_start_at,
+    requested_end_at, timezone, status, created_at`;
+  values.push(MeetingReqTypes.MeetingRequestStatus.PENDING);
+  const updatedRequest = await client.query(query, values);
+  return updatedRequest.rows;
+}

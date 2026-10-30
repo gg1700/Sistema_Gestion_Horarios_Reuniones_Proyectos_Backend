@@ -46,3 +46,7 @@ export function createMeetingRequest(req: Request, res: Response, next: NextFunc
     });
   }
 }
+
+export const updateMeetingRequest = validateRequestBody(
+  MeetingReqValidations.validateUpdateMeetingRequest
+);

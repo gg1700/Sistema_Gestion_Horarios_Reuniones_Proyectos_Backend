@@ -3,6 +3,8 @@ import * as TokenTypes from "../types/token.types";
 import * as GeneralValidations from "../validators/general.validator";
 import * as MeetingReqService from "../services/meeting-requests.service";
 import * as MeetingReqTypes from "../types/meeting-requests.types";
+import { ServerError } from "../helpers/errors.helper";
+import * as MeetingReqValidation from "../validators/meeting-requests.validator";
 
 export async function createMeetingRequest(req: Request, res: Response) {
   try {
@@ -75,6 +77,26 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: `Error interno del servidor ${(err as Error).message}`
+    });
+  }
+}
+
+export async function updateMeetingRequest(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const requestId = MeetingReqValidation.validateMeetingRequestId(req.params.requestId);
+
+    const { result, statusCode, message, data } = await MeetingReqService.
+      updateMeetingRequest(validatedUserId, requestId, req.body);
+    if (!result) return res.status(statusCode).json({ success: false, message: message });
+
+    return res.status(statusCode).json({ success: true, message: message, data: data });
+  } catch (err) {
+    const statusCode = err instanceof ServerError ? err.statusCode : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: (statusCode === 500) ? "Error interno del servidor" : (err as Error).message
     });
   }
 }

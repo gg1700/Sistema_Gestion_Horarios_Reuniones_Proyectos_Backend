@@ -136,3 +136,104 @@ export async function listSentMeetingRequests(
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
   }
 }
+
+export async function updateMeetingRequest(
+  userId: string,
+  requestId: string,
+  requestInfo: MeetingReqTypes.UpdateMeetingRequest) {
+  try {
+    const ans = await processTransaction(async function (client: PoolClient) {
+      const requestFound = await MeetingReqRepo.findRequestForRequester(requestId, userId, client);
+      if (!requestFound || requestFound.length === 0)
+        return { result: false, statusCode: 404, message: "Solicitud de reunion no encontrada" };
+
+      const request = requestFound[0];
+      if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING)
+        return { result: false, statusCode: 409, message: "Solo se pueden modificar solicitudes pendientes" };
+
+      const startTime = requestInfo.startsAt ?? request.requested_start_at;
+      const endTime = requestInfo.endsAt ?? request.requested_end_at;
+
+      if (startTime.getTime() <= Date.now())
+        return { result: false, statusCode: 400, message: "La fecha de inicio debe ser futura" };
+      if (endTime <= startTime)
+        return { result: false, statusCode: 400, message: "La fecha de finalizacion debe ser posterior al inicio" };
+
+      const recipientUserId = request.recipient_user_id;
+      const recipientLooked = await MeetingReqRepo.lockRecipientUser(recipientUserId, client);
+      if (!recipientLooked)
+        return { result: false, statusCode: 409, message: "El destinatario ya no esta disponible" };
+
+      const publicCalendarFound = await MeetingReqRepo.hasPublicCalendarActiveWithClient(recipientUserId, client);
+      if (!publicCalendarFound)
+        return { result: false, statusCode: 409, message: "El calendario publico del destinatario ya no esta disponible" };
+
+      const recipientTimezoneFound = await MeetingReqRepo.findRecipientTimezoneWithClient(recipientUserId, client);
+
+      const recipientTimezone = (!recipientTimezoneFound || recipientTimezoneFound.length === 0)
+        ? "UTC"
+        : recipientTimezoneFound[0].timezone;
+
+      const startDate = DateUtils.getLocalDate(startTime, recipientTimezone);
+      const endDate = DateUtils.getLocalDate(endTime, recipientTimezone);
+      const startDay = DateUtils.getLocalWeekDay(startTime, recipientTimezone);
+      const endDay = DateUtils.getLocalWeekDay(endTime, recipientTimezone);
+      const startHour = DateUtils.getLocalTime(startTime, recipientTimezone);
+      const endHour = DateUtils.getLocalTime(endTime, recipientTimezone);
+
+      if (startDay !== endDay || startDate !== endDate)
+        return { result: false, statusCode: 400, message: "No es posible solicitar una reunion que dure mas de un dia" };
+
+      const availableSchedules = await MeetingReqRepo.
+        findAvailableSchedules(recipientUserId, startDay, startHour, endHour, client);
+      if (!availableSchedules || availableSchedules.length === 0) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "El horario solicitado no coincide con la disponibilidad del destinatario"
+        };
+      }
+
+      const scheduledActivities = await MeetingReqRepo.findCalendarSchedules(recipientUserId, startTime, endTime, client);
+      if (scheduledActivities.length > 0) {
+        return { result: false, statusCode: 409, message: "El horario solicitado esta ocupado por otra actividad" };
+      }
+
+      const pendingRequests = await MeetingReqRepo.
+        findOtherPendingRequests(recipientUserId, requestId, startTime, endTime, client);
+      if (pendingRequests.length > 0)
+        return { result: false, statusCode: 409, message: "Ya existen solicitudes pendientes para ese horario" };
+
+      const requestInfoDB: MeetingReqTypes.UpdateMeetingRequestDB = {};
+      if (requestInfo.title !== undefined) requestInfoDB.title = requestInfo.title;
+      if (requestInfo.message !== undefined) requestInfoDB.message = requestInfo.message;
+      if (requestInfo.startsAt !== undefined) requestInfoDB.requested_start_at = requestInfo.startsAt;
+      if (requestInfo.endsAt !== undefined) requestInfoDB.requested_end_at = requestInfo.endsAt;
+      if (requestInfo.timeZone !== undefined) requestInfoDB.timezone = requestInfo.timeZone;
+
+      const updatedRequest = await MeetingReqRepo.updatePendingRequest(requestId, userId, requestInfoDB, client);
+      if (!updatedRequest || updatedRequest.length === 0) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "No se pudo actualizar la solicitud; puede que ya no este pendiente"
+        };
+      }
+
+      const formatedData = Mapper.meetingRequestToResponse(updatedRequest[0]);
+      return {
+        result: true,
+        statusCode: 200,
+        message: "Solicitud de reunion actualizada correctamente",
+        data: formatedData
+      };
+    });
+
+    return ans;
+  } catch (err) {
+    if (err instanceof ServerError)
+      return { result: false, statusCode: err.statusCode, message: err.message };
+    
+    return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}`};
+  }
+}

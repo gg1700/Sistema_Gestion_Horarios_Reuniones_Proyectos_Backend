@@ -15,6 +15,7 @@ import type {
 const GOOGLE_CALENDAR_API = "https://www.googleapis.com/calendar/v3";
 const TIMEOUT_MS = 8000;
 const MAX_PAGES = 20;
+const MAX_SYNC_PAGES = 100;
 
 type GoogleEventStatus = "confirmed" | "tentative" | "cancelled";
 type CalendarRequestMethod = "GET" | "POST" | "PATCH" | "DELETE";
@@ -39,6 +40,13 @@ interface GoogleEventResource {
 interface GoogleEventListResponse {
   items?: GoogleEventResource[];
   nextPageToken?: string;
+  nextSyncToken?: string;
+}
+
+export interface GoogleCalendarChanges {
+  upserts: GoogleCalendarEvent[];
+  deletedIds: string[];
+  nextSyncToken: string;
 }
 
 export class GoogleCalendarClientError extends ServerError {
@@ -49,7 +57,8 @@ export class GoogleCalendarClientError extends ServerError {
       | "google_calendar_unavailable"
       | "google_rate_limited"
       | "google_event_not_found"
-      | "google_invalid_response",
+      | "google_invalid_response"
+      | "google_sync_expired",
     statusCode: number,
   ) {
     super(code, statusCode);
@@ -57,10 +66,6 @@ export class GoogleCalendarClientError extends ServerError {
   }
 }
 
-/**
- * Reutiliza el servicio existente de tokens.
- * No descifra, almacena ni renueva tokens directamente.
- */
 export async function getValidGoogleAccessToken(
   userId: string,
 ): Promise<string> {
@@ -71,24 +76,14 @@ export async function getValidGoogleAccessToken(
       if (error.code === "google_not_connected") {
         throw new GoogleCalendarClientError("google_not_connected", 409);
       }
-
       if (error.code === "reconnection_required") {
         throw new GoogleCalendarClientError("reconnection_required", 409);
       }
-
-      if (error.code === "google_refresh_failed") {
-        throw new GoogleCalendarClientError("google_calendar_unavailable", 503);
-      }
     }
-
     throw new GoogleCalendarClientError("google_calendar_unavailable", 503);
   }
 }
 
-/**
- * Obtiene exclusivamente el calendario seleccionado
- * por el usuario autenticado.
- */
 async function getSelectedCalendar(
   userId: string,
 ): Promise<GoogleCalendarForUser> {
@@ -109,13 +104,8 @@ async function getSelectedCalendar(
   return calendar;
 }
 
-/**
- * Codifica los identificadores para construir URLs seguras.
- */
 function buildGoogleUrl(calendarId: string, eventId?: string): URL {
-  const encodedCalendarId = encodeURIComponent(calendarId);
-  const base = `${GOOGLE_CALENDAR_API}/calendars/${encodedCalendarId}/events`;
-
+  const base = `${GOOGLE_CALENDAR_API}/calendars/${encodeURIComponent(calendarId)}/events`;
   return new URL(
     eventId === undefined
       ? base
@@ -123,9 +113,6 @@ function buildGoogleUrl(calendarId: string, eventId?: string): URL {
   );
 }
 
-/**
- * Traduce los errores HTTP de Google a errores controlados.
- */
 function parseRemoteError(
   status: number,
   eventOperation: boolean,
@@ -176,11 +163,9 @@ function parseRemoteError(
   );
 }
 
-/**
- * Extrae el motivo de un error de Google sin exponer
- * datos sensibles ni registrar el cuerpo de respuesta.
- */
-async function getGoogleErrorReason(response: Response): Promise<string | undefined> {
+async function getGoogleErrorReason(
+  response: Response,
+): Promise<string | undefined> {
   try {
     const data: unknown = await response.json();
 
@@ -195,9 +180,7 @@ async function getGoogleErrorReason(response: Response): Promise<string | undefi
     }
 
     if ("errors" in error && Array.isArray(error.errors)) {
-      const details: unknown[] = error.errors;
-
-      for (const detail of details) {
+      for (const detail of error.errors) {
         if (
           detail &&
           typeof detail === "object" &&
@@ -210,9 +193,7 @@ async function getGoogleErrorReason(response: Response): Promise<string | undefi
     }
 
     if ("details" in error && Array.isArray(error.details)) {
-      const details: unknown[] = error.details;
-
-      for (const detail of details) {
+      for (const detail of error.details) {
         if (
           detail &&
           typeof detail === "object" &&
@@ -220,18 +201,6 @@ async function getGoogleErrorReason(response: Response): Promise<string | undefi
           typeof detail.reason === "string"
         ) {
           return detail.reason;
-        }
-
-        if (
-          detail &&
-          typeof detail === "object" &&
-          "metadata" in detail &&
-          detail.metadata &&
-          typeof detail.metadata === "object" &&
-          "reason" in detail.metadata &&
-          typeof detail.metadata.reason === "string"
-        ) {
-          return detail.metadata.reason;
         }
       }
     }
@@ -246,10 +215,6 @@ async function getGoogleErrorReason(response: Response): Promise<string | undefi
   }
 }
 
-/**
- * Ejecuta una petición HTTP contra Google Calendar.
- * Aplica timeout y traduce respuestas de error.
- */
 async function requestGoogle<T>(
   accessToken: string,
   url: URL,
@@ -265,21 +230,14 @@ async function requestGoogle<T>(
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
-        ...(body !== undefined
-          ? { "Content-Type": "application/json" }
-          : {}),
+        ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
-      ...(body !== undefined
-        ? { body: JSON.stringify(body) }
-        : {}),
+      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(TIMEOUT_MS),
       redirect: "error",
     });
   } catch {
-    throw new GoogleCalendarClientError(
-      "google_calendar_unavailable",
-      503,
-    );
+    throw new GoogleCalendarClientError("google_calendar_unavailable", 503);
   }
 
   if (!response.ok) {
@@ -301,9 +259,6 @@ async function requestGoogle<T>(
   }
 }
 
-/**
- * Comprueba una zona horaria IANA.
- */
 function isValidTimeZone(timeZone: string): boolean {
   try {
     new Intl.DateTimeFormat("en-US", { timeZone });
@@ -313,24 +268,11 @@ function isValidTimeZone(timeZone: string): boolean {
   }
 }
 
-/**
- * Convierte fechas ISO-8601 remotas sin lanzar RangeError.
- */
 function parseGoogleDateTime(value: string): string | null {
   const date = new Date(value);
-
-  return Number.isNaN(date.getTime())
-    ? null
-    : date.toISOString();
+  return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
-/**
- * Convierte la medianoche local de un evento de día completo
- * al instante UTC correspondiente.
- *
- * Google representa el fin de los eventos de día completo
- * como una fecha exclusiva.
- */
 function allDayToISO(date: string, timeZone: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidTimeZone(timeZone)) {
     return null;
@@ -389,10 +331,8 @@ function allDayToISO(date: string, timeZone: string): string | null {
     instant += difference;
   }
 
-  const finalParts = formatter.formatToParts(new Date(instant));
-
   const values = Object.fromEntries(
-    finalParts
+    formatter.formatToParts(new Date(instant))
       .filter(part => part.type !== "literal")
       .map(part => [part.type, Number(part.value)]),
   );
@@ -410,17 +350,11 @@ function allDayToISO(date: string, timeZone: string): string | null {
   return new Date(instant).toISOString();
 }
 
-/**
- * Normaliza los eventos temporizados y de día completo
- * a la representación interna de Orbitia.
- */
 function normalizeGoogleEvent(
   event: GoogleEventResource,
   fallbackTimeZone: string,
 ): GoogleCalendarEvent | null {
-  if (typeof event.id !== "string" || !event.id.trim()) {
-    return null;
-  }
+  if (typeof event.id !== "string" || !event.id.trim()) return null;
 
   const timeZone =
     event.start?.timeZone ??
@@ -473,9 +407,6 @@ function normalizeGoogleEvent(
   };
 }
 
-/**
- * Requiere que Google devuelva un evento utilizable.
- */
 function requireGoogleEvent(
   event: GoogleEventResource,
   timeZone: string,
@@ -489,10 +420,6 @@ function requireGoogleEvent(
   return normalized;
 }
 
-/**
- * Construye el cuerpo de creación para Google Calendar v3.
- * isPublic se administra únicamente en PostgreSQL.
- */
 function makeGoogleEventBody(input: CreateCalendarEventInput): object {
   return {
     summary: input.title,
@@ -509,11 +436,6 @@ function makeGoogleEventBody(input: CreateCalendarEventInput): object {
   };
 }
 
-/**
- * Consulta los eventos del calendario seleccionado.
- * Soporta paginación, eventos recurrentes expandidos
- * y eventos de día completo.
- */
 export async function listGoogleEvents(
   userId: string,
   from: string,
@@ -527,11 +449,7 @@ export async function listGoogleEvents(
   const visitedTokens = new Set<string>();
   let pageToken: string | undefined;
 
-  for (
-    let page = 0;
-    page < MAX_PAGES && events.length < limit;
-    page++
-  ) {
+  for (let page = 0; page < MAX_PAGES && events.length < limit; page++) {
     const url = buildGoogleUrl(calendar.calendarId);
 
     url.searchParams.set("timeMin", from);
@@ -560,10 +478,7 @@ export async function listGoogleEvents(
         calendar.timeZone ?? "UTC",
       );
 
-      if (event) {
-        events.push(event);
-      }
-
+      if (event) events.push(event);
       if (events.length >= limit) break;
     }
 
@@ -587,11 +502,6 @@ export async function listGoogleEvents(
   return events;
 }
 
-/**
- * Crea el evento en Google Calendar.
- * La persistencia del espejo local corresponde al servicio
- * calendarEvents.service.ts.
- */
 export async function createGoogleEvent(
   userId: string,
   input: CreateCalendarEventInput,
@@ -599,11 +509,9 @@ export async function createGoogleEvent(
   const calendar = await getSelectedCalendar(userId);
   const accessToken = await getValidGoogleAccessToken(userId);
 
-  const url = buildGoogleUrl(calendar.calendarId);
-
   const response = await requestGoogle<GoogleEventResource>(
     accessToken,
-    url,
+    buildGoogleUrl(calendar.calendarId),
     "POST",
     makeGoogleEventBody(input),
   );
@@ -611,11 +519,6 @@ export async function createGoogleEvent(
   return requireGoogleEvent(response, input.timeZone);
 }
 
-/**
- * Actualiza parcialmente un evento remoto.
- * La comprobación de propiedad del UUID local corresponde
- * al servicio calendarEvents.service.ts.
- */
 export async function updateGoogleEvent(
   userId: string,
   googleEventId: string,
@@ -623,21 +526,13 @@ export async function updateGoogleEvent(
 ): Promise<GoogleCalendarEvent> {
   const calendar = await getSelectedCalendar(userId);
   const accessToken = await getValidGoogleAccessToken(userId);
-
   const url = buildGoogleUrl(calendar.calendarId, googleEventId);
+
   const body: Record<string, unknown> = {};
 
-  if (input.title !== undefined) {
-    body.summary = input.title;
-  }
-
-  if (input.description !== undefined) {
-    body.description = input.description;
-  }
-
-  if (input.location !== undefined) {
-    body.location = input.location;
-  }
+  if (input.title !== undefined) body.summary = input.title;
+  if (input.description !== undefined) body.description = input.description;
+  if (input.location !== undefined) body.location = input.location;
 
   if (input.startsAt !== undefined) {
     body.start = {
@@ -667,11 +562,6 @@ export async function updateGoogleEvent(
   );
 }
 
-/**
- * Elimina el evento remoto.
- * El espejo local se elimina únicamente después
- * de una respuesta exitosa de Google.
- */
 export async function deleteGoogleEvent(
   userId: string,
   googleEventId: string,
@@ -679,13 +569,127 @@ export async function deleteGoogleEvent(
   const calendar = await getSelectedCalendar(userId);
   const accessToken = await getValidGoogleAccessToken(userId);
 
-  const url = buildGoogleUrl(calendar.calendarId, googleEventId);
-
   await requestGoogle<void>(
     accessToken,
-    url,
+    buildGoogleUrl(calendar.calendarId, googleEventId),
     "DELETE",
     undefined,
     true,
   );
+}
+
+/**
+ * Obtiene todos los cambios desde el syncToken anterior.
+ * La primera llamada, sin syncToken, realiza una sincronización inicial.
+ */
+export async function listGoogleCalendarChanges(
+  userId: string,
+  syncToken?: string,
+): Promise<GoogleCalendarChanges> {
+  const calendar = await getSelectedCalendar(userId);
+  const accessToken = await getValidGoogleAccessToken(userId);
+
+  const upserts: GoogleCalendarEvent[] = [];
+  const deletedIds: string[] = [];
+  const visitedTokens = new Set<string>();
+  let pageToken: string | undefined;
+
+  for (let page = 0; page < MAX_SYNC_PAGES; page++) {
+    const url = buildGoogleUrl(calendar.calendarId);
+    url.searchParams.set("maxResults", "2500");
+    url.searchParams.set("showDeleted", "true");
+
+    if (syncToken) url.searchParams.set("syncToken", syncToken);
+    if (pageToken) url.searchParams.set("pageToken", pageToken);
+
+    let response: Response;
+
+    try {
+      response = await fetch(url, {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          Accept: "application/json",
+        },
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        redirect: "error",
+      });
+    } catch {
+      throw new GoogleCalendarClientError(
+        "google_calendar_unavailable",
+        503,
+      );
+    }
+
+    if (response.status === 410 && syncToken) {
+      throw new GoogleCalendarClientError("google_sync_expired", 409);
+    }
+
+    if (!response.ok) {
+      const reason = response.status === 403
+        ? await getGoogleErrorReason(response)
+        : undefined;
+
+      parseRemoteError(response.status, false, reason);
+    }
+
+    let payload: unknown;
+
+    try {
+      payload = await response.json();
+    } catch {
+      throw new GoogleCalendarClientError("google_invalid_response", 502);
+    }
+
+    if (
+      !payload ||
+      typeof payload !== "object" ||
+      !("items" in payload) ||
+      !Array.isArray(payload.items)
+    ) {
+      throw new GoogleCalendarClientError("google_invalid_response", 502);
+    }
+
+    const data = payload as GoogleEventListResponse;
+
+    for (const item of data.items ?? []) {
+      if (item?.status === "cancelled") {
+        if (typeof item.id === "string" && item.id) {
+          deletedIds.push(item.id);
+        }
+        continue;
+      }
+
+      const event = normalizeGoogleEvent(
+        item,
+        calendar.timeZone ?? "UTC",
+      );
+
+      if (event) upserts.push(event);
+    }
+
+    if (!data.nextPageToken) {
+      if (
+        typeof data.nextSyncToken !== "string" ||
+        !data.nextSyncToken
+      ) {
+        throw new GoogleCalendarClientError("google_invalid_response", 502);
+      }
+
+      return {
+        upserts,
+        deletedIds,
+        nextSyncToken: data.nextSyncToken,
+      };
+    }
+
+    if (visitedTokens.has(data.nextPageToken)) {
+      throw new GoogleCalendarClientError("google_invalid_response", 502);
+    }
+
+    visitedTokens.add(data.nextPageToken);
+    pageToken = data.nextPageToken;
+  }
+
+  throw new GoogleCalendarClientError("google_invalid_response", 502);
 }

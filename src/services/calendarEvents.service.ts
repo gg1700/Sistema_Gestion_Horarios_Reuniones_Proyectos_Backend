@@ -1,3 +1,4 @@
+
 import {
   ConflictError,
   NotFoundError,
@@ -8,12 +9,17 @@ import {
   findOwnedCalendarEvent,
   upsertCalendarEventMirror,
   deleteCalendarEventMirror,
+  findCalendarSyncToken,
+  applyCalendarChanges,
+  clearCalendarSyncToken,
 } from "../repositories/calendarEvents.repository";
 import {
   listGoogleEvents,
   createGoogleEvent,
   updateGoogleEvent,
   deleteGoogleEvent,
+  listGoogleCalendarChanges,
+  GoogleCalendarClientError,
 } from "./googleCalendarClient.service";
 import type {
   CalendarEventMirror,
@@ -88,9 +94,7 @@ function ensureValidRange(startsAt: string, endsAt: string): void {
     !Number.isFinite(end) ||
     start >= end
   ) {
-    throw new ValidationError(
-      "startsAt debe ser anterior a endsAt",
-    );
+    throw new ValidationError("startsAt debe ser anterior a endsAt");
   }
 }
 
@@ -110,11 +114,13 @@ function mirrorData(
   connectionId: string,
   event: GoogleCalendarEvent,
   isPublic?: boolean,
+  calendarId?: string,
 ) {
   return {
     userId,
     calendarConnectionId: connectionId,
     googleEventId: event.id,
+    ...(calendarId !== undefined ? { googleCalendarId: calendarId } : {}),
     title: event.title,
     description: event.description,
     location: event.location,
@@ -127,6 +133,7 @@ function mirrorData(
     providerUpdatedAt: event.providerUpdatedAt,
   };
 }
+
 async function retryLocalOperation<T>(
   operation: () => Promise<T>,
 ): Promise<T> {
@@ -136,11 +143,65 @@ async function retryLocalOperation<T>(
     return operation();
   }
 }
+
+async function syncExternalChanges(
+  userId: string,
+  calendar: GoogleCalendarForUser,
+): Promise<void> {
+  const syncToken = await findCalendarSyncToken(
+    calendar.connectionId,
+    calendar.calendarId,
+  );
+
+  let changes;
+
+  try {
+    changes = await listGoogleCalendarChanges(
+      userId,
+      syncToken ?? undefined,
+    );
+  } catch (error) {
+    if (
+      syncToken &&
+      error instanceof GoogleCalendarClientError &&
+      error.code === "google_sync_expired"
+    ) {
+      await clearCalendarSyncToken(
+        calendar.connectionId,
+        calendar.calendarId,
+      );
+
+      changes = await listGoogleCalendarChanges(userId);
+    } else {
+      throw error;
+    }
+  }
+
+  await applyCalendarChanges(
+    userId,
+    calendar.connectionId,
+    calendar.calendarId,
+    changes.upserts.map(event =>
+      mirrorData(
+        userId,
+        calendar.connectionId,
+        event,
+        undefined,
+        calendar.calendarId,
+      ),
+    ),
+    changes.deletedIds,
+    changes.nextSyncToken,
+  );
+}
+
 export async function listCalendarEvents(
   userId: string,
   query: CalendarEventRangeQuery,
 ): Promise<CalendarEventResponse[]> {
   const calendar = await getConnectedCalendar(userId);
+
+  await syncExternalChanges(userId, calendar);
 
   const googleEvents = await listGoogleEvents(
     userId,
@@ -153,7 +214,13 @@ export async function listCalendarEvents(
 
   for (const googleEvent of googleEvents) {
     const mirror = await upsertCalendarEventMirror(
-      mirrorData(userId, calendar.connectionId, googleEvent),
+      mirrorData(
+        userId,
+        calendar.connectionId,
+        googleEvent,
+        undefined,
+        calendar.calendarId,
+      ),
     );
 
     events.push(toResponse(mirror));
@@ -179,6 +246,7 @@ export async function createCalendarEvent(
         calendar.connectionId,
         googleEvent,
         input.isPublic,
+        calendar.calendarId,
       ),
     );
 
@@ -188,13 +256,12 @@ export async function createCalendarEvent(
       await deleteGoogleEvent(userId, googleEvent.id);
     } catch {
       // La compensación es de mejor esfuerzo.
-      // Conservamos el error original del guardado local.
+      // Se conserva el error original.
     }
 
     throw error;
   }
 }
-
 
 export async function updateCalendarEvent(
   userId: string,
@@ -202,7 +269,12 @@ export async function updateCalendarEvent(
   input: UpdateCalendarEventInput,
 ): Promise<CalendarEventResponse> {
   const calendar = await getConnectedCalendar(userId);
-  const current = await getOwnedEvent(userId, eventId, calendar.connectionId);
+
+  const current = await getOwnedEvent(
+    userId,
+    eventId,
+    calendar.connectionId,
+  );
 
   const startsAt = input.startsAt ?? current.startsAt;
   const endsAt = input.endsAt ?? current.endsAt;
@@ -249,6 +321,7 @@ export async function updateCalendarEvent(
         calendar.connectionId,
         updated,
         input.isPublic ?? current.isPublic,
+        calendar.calendarId,
       ),
     ),
   );

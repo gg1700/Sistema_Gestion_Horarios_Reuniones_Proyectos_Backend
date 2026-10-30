@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => ({
   createGoogleEvent: vi.fn(),
   updateGoogleEvent: vi.fn(),
   deleteGoogleEvent: vi.fn(),
+  findCalendarSyncToken: vi.fn(),
+  applyCalendarChanges: vi.fn(),
+  clearCalendarSyncToken: vi.fn(),
+  listGoogleCalendarChanges: vi.fn(),
 }));
 
 vi.mock("../src/services/session.service", () => ({
@@ -29,6 +33,9 @@ vi.mock("../src/repositories/calendarEvents.repository", () => ({
   findOwnedCalendarEvent: mocks.findOwnedCalendarEvent,
   upsertCalendarEventMirror: mocks.upsertCalendarEventMirror,
   deleteCalendarEventMirror: mocks.deleteCalendarEventMirror,
+  findCalendarSyncToken: mocks.findCalendarSyncToken,
+  applyCalendarChanges: mocks.applyCalendarChanges,
+  clearCalendarSyncToken: mocks.clearCalendarSyncToken,
 }));
 
 vi.mock("../src/services/googleCalendarClient.service", () => ({
@@ -36,6 +43,7 @@ vi.mock("../src/services/googleCalendarClient.service", () => ({
   createGoogleEvent: mocks.createGoogleEvent,
   updateGoogleEvent: mocks.updateGoogleEvent,
   deleteGoogleEvent: mocks.deleteGoogleEvent,
+  listGoogleCalendarChanges: mocks.listGoogleCalendarChanges,
 }));
 
 vi.mock("../src/config/env.config", () => ({
@@ -121,6 +129,14 @@ beforeEach(() => {
   mocks.createGoogleEvent.mockResolvedValue(googleEvent);
   mocks.updateGoogleEvent.mockResolvedValue(googleEvent);
   mocks.deleteGoogleEvent.mockResolvedValue(undefined);
+  mocks.findCalendarSyncToken.mockResolvedValue(null);
+  mocks.listGoogleCalendarChanges.mockResolvedValue({
+    upserts: [],
+    deletedIds: [],
+    nextSyncToken: "cursor-1",
+  });
+  mocks.applyCalendarChanges.mockResolvedValue(undefined);
+  mocks.clearCalendarSyncToken.mockResolvedValue(undefined);
 });
 
 describe("Calendar events - autenticación", () => {
@@ -537,5 +553,75 @@ describe("Calendar events - conexión y errores", () => {
       .expect(500);
 
     expect(JSON.stringify(response.body)).not.toContain("access_token");
+  });
+});
+
+describe("Calendar events - sincronización incremental", () => {
+  it("realiza la sincronización inicial sin cursor", async () => {
+    await request(app)
+      .get(path)
+      .set("Authorization", authorization)
+      .expect(200);
+
+    expect(mocks.findCalendarSyncToken).toHaveBeenCalledWith(
+      connectionId,
+      calendar.calendarId,
+    );
+
+    expect(mocks.listGoogleCalendarChanges).toHaveBeenCalledWith(
+      userId,
+      undefined,
+    );
+
+    expect(mocks.applyCalendarChanges).toHaveBeenCalledWith(
+      userId,
+      connectionId,
+      calendar.calendarId,
+      [],
+      [],
+      "cursor-1",
+    );
+  });
+
+  it("envía el cursor anterior para consultar cambios", async () => {
+    mocks.findCalendarSyncToken.mockResolvedValue("cursor-old");
+    mocks.listGoogleCalendarChanges.mockResolvedValue({
+      upserts: [],
+      deletedIds: ["google-event-deleted"],
+      nextSyncToken: "cursor-new",
+    });
+
+    await request(app)
+      .get(path)
+      .set("Authorization", authorization)
+      .expect(200);
+
+    expect(mocks.listGoogleCalendarChanges).toHaveBeenCalledWith(
+      userId,
+      "cursor-old",
+    );
+
+    expect(mocks.applyCalendarChanges).toHaveBeenCalledWith(
+      userId,
+      connectionId,
+      calendar.calendarId,
+      [],
+      ["google-event-deleted"],
+      "cursor-new",
+    );
+  });
+
+  it("no ejecuta el GET normal si falla la sincronización", async () => {
+    mocks.listGoogleCalendarChanges.mockRejectedValue(
+      new Error("Error de sincronización"),
+    );
+
+    await request(app)
+      .get(path)
+      .set("Authorization", authorization)
+      .expect(500);
+
+    expect(mocks.listGoogleEvents).not.toHaveBeenCalled();
+    expect(mocks.applyCalendarChanges).not.toHaveBeenCalled();
   });
 });

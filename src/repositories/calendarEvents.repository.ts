@@ -1,5 +1,5 @@
 import type { PoolClient } from "pg";
-import { processReturnQuery } from "../utils/query";
+import { processReturnQuery, processTransaction } from "../utils/query";
 import type {
   CalendarEventMirror,
   CalendarEventRangeQuery,
@@ -40,6 +40,7 @@ export interface UpsertCalendarEventMirrorInput {
   userId: string;
   calendarConnectionId: string;
   googleEventId: string;
+  googleCalendarId?: string;
   title: string;
   description?: string | null;
   location?: string | null;
@@ -143,10 +144,9 @@ export async function findGoogleCalendarForUser(
     calendarId: row.google_calendar_id,
     calendarName: row.calendar_name,
     timeZone: row.timezone,
-    connectionStatus:
-      row.account_state === "active"
-        ? row.connection_status
-        : "reconnection_required",
+    connectionStatus: row.account_state === "active"
+      ? row.connection_status
+      : "reconnection_required",
   };
 }
 
@@ -234,6 +234,7 @@ export async function upsertCalendarEventMirror(
        AND ea.provider = 'google'
        AND u.status = 'active'
        AND u.deleted_at IS NULL
+       AND ($14::text IS NULL OR cc.google_calendar_id = $14::text)
      ON CONFLICT (calendar_connection_id, google_event_id)
      DO UPDATE SET
        title = EXCLUDED.title,
@@ -242,10 +243,7 @@ export async function upsertCalendarEventMirror(
        starts_at = EXCLUDED.starts_at,
        ends_at = EXCLUDED.ends_at,
        timezone = EXCLUDED.timezone,
-       is_public = COALESCE(
-         $10::boolean,
-         public.calendar_event.is_public
-       ),
+       is_public = COALESCE($10::boolean, public.calendar_event.is_public),
        event_status = EXCLUDED.event_status,
        sync_status = EXCLUDED.sync_status,
        provider_updated_at = EXCLUDED.provider_updated_at,
@@ -267,6 +265,7 @@ export async function upsertCalendarEventMirror(
       input.eventStatus ?? "confirmed",
       input.syncStatus ?? "synced",
       input.providerUpdatedAt ?? null,
+      input.googleCalendarId ?? null,
     ],
     client,
   );
@@ -293,4 +292,101 @@ export async function deleteCalendarEventMirror(
   );
 
   return rows.length > 0;
+}
+
+export async function findCalendarSyncToken(
+  connectionId: string,
+  googleCalendarId: string,
+): Promise<string | null> {
+  const rows = await executeQuery<{ sync_token: string | null }>(
+    `SELECT choice.sync_token
+     FROM public.calendar_calendar_choice choice
+     JOIN public.calendar_connection cc
+       ON cc.google_calendar_id = choice.google_calendar_id
+     JOIN public.external_account ea
+       ON ea.id = cc.external_account_id
+     WHERE cc.id = $1
+       AND choice.google_calendar_id = $2
+       AND choice.user_id = ea.user_id`,
+    [connectionId, googleCalendarId],
+  );
+
+  return rows[0]?.sync_token ?? null;
+}
+export async function applyCalendarChanges(
+  userId: string,
+  connectionId: string,
+  googleCalendarId: string,
+  upserts: UpsertCalendarEventMirrorInput[],
+  deletedIds: string[],
+  nextSyncToken: string,
+): Promise<void> {
+  await processTransaction(async client => {
+    const { rows } = await client.query<{ google_calendar_id: string }>(
+      `SELECT cc.google_calendar_id
+       FROM public.calendar_connection cc
+       JOIN public.external_account ea
+         ON ea.id = cc.external_account_id
+       WHERE cc.id = $1
+         AND ea.user_id = $2
+         AND ea.provider = 'google'
+       FOR UPDATE OF cc`,
+      [connectionId, userId],
+    );
+
+    if (rows[0]?.google_calendar_id !== googleCalendarId) {
+      throw new Error(
+        "El calendario seleccionado cambió durante la sincronización",
+      );
+    }
+
+    for (const input of upserts) {
+      await upsertCalendarEventMirror(input, client);
+    }
+
+    if (deletedIds.length) {
+      await client.query(
+        `DELETE FROM public.calendar_event
+         WHERE user_id = $1
+           AND calendar_connection_id = $2
+           AND google_event_id = ANY($3::text[])`,
+        [userId, connectionId, deletedIds],
+      );
+    }
+
+    const updated = await client.query(
+      `UPDATE public.calendar_calendar_choice
+       SET sync_token = $3,
+           last_synced_at = NOW(),
+           updated_at = NOW()
+       WHERE user_id = $1
+         AND google_calendar_id = $2
+       RETURNING user_id`,
+      [userId, googleCalendarId, nextSyncToken],
+    );
+
+    if (updated.rowCount !== 1) {
+      throw new Error("No se pudo guardar el cursor de sincronización");
+    }
+  });
+}
+
+export async function clearCalendarSyncToken(
+  connectionId: string,
+  googleCalendarId: string,
+): Promise<void> {
+  await executeQuery(
+    `UPDATE public.calendar_calendar_choice choice
+     SET sync_token = NULL,
+         updated_at = NOW()
+     FROM public.calendar_connection cc
+     JOIN public.external_account ea
+       ON ea.id = cc.external_account_id
+     WHERE cc.id = $1
+       AND cc.google_calendar_id = $2
+       AND choice.google_calendar_id = $2
+       AND choice.user_id = ea.user_id
+     RETURNING choice.user_id`,
+    [connectionId, googleCalendarId],
+  );
 }

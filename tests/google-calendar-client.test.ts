@@ -404,3 +404,61 @@ describe("Google Calendar client - errores", () => {
     });
 
 });
+
+describe("Google Calendar client - sincronización incremental", () => {
+  it("consulta cambios usando syncToken", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+      items: [],
+      nextSyncToken: "cursor-new",
+    }));
+    const { listGoogleCalendarChanges } = await import(
+      "../src/services/googleCalendarClient.service"
+    );
+    const result = await listGoogleCalendarChanges(
+      userId,
+      "cursor-old",
+    );
+    expect(result).toEqual({
+      upserts: [],
+      deletedIds: [],
+      nextSyncToken: "cursor-new",
+    });
+    const { url } = lastRequest();
+    expect(url.searchParams.get("syncToken")).toBe("cursor-old");
+    expect(url.searchParams.get("timeMin")).toBeNull();
+    expect(url.searchParams.get("timeMax")).toBeNull();
+    expect(url.searchParams.get("orderBy")).toBeNull();
+  });
+  it("detecta eventos eliminados en Google", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+      items: [{
+        id: "deleted-event-123",
+        status: "cancelled",
+      }],
+      nextSyncToken: "cursor-new",
+    }));
+    const { listGoogleCalendarChanges } = await import(
+      "../src/services/googleCalendarClient.service"
+    );
+    const result = await listGoogleCalendarChanges(
+      userId,
+      "cursor-old",
+    );
+    expect(result.deletedIds).toEqual(["deleted-event-123"]);
+    expect(result.upserts).toEqual([]);
+  });
+  it("detecta un cursor expirado", async () => {
+    fetchMock.mockResolvedValue(
+      jsonResponse({ error: "Sync token expired" }, 410),
+    );
+    const { listGoogleCalendarChanges } = await import(
+      "../src/services/googleCalendarClient.service"
+    );
+    await expect(
+      listGoogleCalendarChanges(userId, "cursor-old"),
+    ).rejects.toMatchObject({
+      code: "google_sync_expired",
+      statusCode: 409,
+    });
+  });
+});

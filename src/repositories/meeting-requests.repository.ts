@@ -144,6 +144,7 @@ export async function listRequests(
     ${counterpart}.name AS recipient_name,
     ${counterpart}.first_surname AS recipient_surname
     FROM "meeting_request" mr
+    JOIN "user" requester ON requester.id = mr.requester_user_id
     JOIN "user" recipient ON recipient.id = mr.recipient_user_id
     WHERE mr.${userConstraint} = $1 ${filter}
     ORDER BY mr.created_at DESC, mr.id DESC

@@ -13,6 +13,11 @@ const profile: PublicProfileInput = {
   profilePicture: null,
   requiresProfileCompletion: false,
 
+    sectionVisibility: {
+    repositories: true,
+    githubActivity: true,
+  },
+
   surname: {
     surname: "Segundo",
     visible: false

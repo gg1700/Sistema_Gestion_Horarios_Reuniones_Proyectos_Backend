@@ -11,6 +11,7 @@ import * as WorkExpTypes from "../types/work_experience.types";
 import { today, tody60YearsAgo } from "../utils/constants/date.constants";
 import { filterPublicProfile } from "./public-profile-filter.service";
 import { findPublicRepositories } from "../repositories/github-repository.repository";
+import { findSectionVisibility } from "../repositories/visibility.repository";
 
 export async function getOwnProfile(userId: string): Promise<Profile> {
   const profile = await ProfileReadRepo.findOwnProfile(userId);
@@ -199,6 +200,8 @@ export async function getPublicProfile(handle: string) {
     return null;
   }
 
+  const sectionVisibility = await findSectionVisibility(user.id);
+
   const publicProfile = filterPublicProfile({
     id: profile.id,
     handleName: profile.handle_name,
@@ -214,7 +217,10 @@ export async function getPublicProfile(handle: string) {
     countries: profile.countries,
     workExperiences: profile.work_experiences,
     links: profile.links,
-    repositories: await findPublicRepositories(user.id),
+    sectionVisibility,
+    repositories: sectionVisibility.repositories
+      ? await findPublicRepositories(user.id)
+      : [],
   });
 
   return {

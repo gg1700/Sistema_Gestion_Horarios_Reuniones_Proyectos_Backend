@@ -58,9 +58,6 @@ export class GoogleCalendarClientError extends ServerError {
   }
 }
 
-/**
- * Reutiliza la renovación y el descifrado de tokens del Sprint 1.
- */
 export async function getValidGoogleAccessToken(userId: string): Promise<string> {
   try {
     return await getValidGoogleAccessTokenFromService(userId);
@@ -138,10 +135,6 @@ function parseRemoteError(status: number, eventOperation: boolean): never {
   );
 }
 
-/**
- * Todas las llamadas al proveedor tienen timeout.
- * Nunca registra tokens, respuestas remotas ni secretos.
- */
 async function requestGoogle<T>(
   accessToken: string,
   url: URL,
@@ -188,8 +181,6 @@ function normalizeGoogleEvent(
 ): GoogleCalendarEvent | null {
   if (typeof event.id !== "string" || !event.id.trim()) return null;
 
-  // Los eventos sin horas completas se tratan de manera independiente
-  // para evitar asignarles una hora incorrecta.
   if (!event.start?.dateTime || !event.end?.dateTime) return null;
 
   const startsAt = new Date(event.start.dateTime);
@@ -256,12 +247,6 @@ function makeGoogleEventBody(input: CreateCalendarEventInput): object {
   };
 }
 
-/**
- * Consulta los eventos del calendario seleccionado.
- *
- * Google es la fuente primaria.
- * No consulta ni modifica el espejo PostgreSQL.
- */
 export async function listGoogleEvents(
   userId: string,
   from: string,
@@ -313,10 +298,6 @@ export async function listGoogleEvents(
   return events;
 }
 
-/**
- * Crea el evento en el calendario remoto.
- * La persistencia local corresponde a calendarEvents.service.ts.
- */
 export async function createGoogleEvent(
   userId: string,
   input: CreateCalendarEventInput,
@@ -335,11 +316,6 @@ export async function createGoogleEvent(
   return requireGoogleEvent(response, input.timeZone);
 }
 
-/**
- * Actualiza parcialmente un evento remoto.
- * El servicio de negocio debe comprobar antes la propiedad
- * del evento mediante su UUID local.
- */
 export async function updateGoogleEvent(
   userId: string,
   googleEventId: string,
@@ -380,12 +356,6 @@ export async function updateGoogleEvent(
   return requireGoogleEvent(response, input.timeZone ?? calendar.timeZone ?? "UTC");
 }
 
-/**
- * Elimina un evento remoto.
- *
- * Debe invocarse exclusivamente después de comprobar
- * que el UUID local pertenece al usuario autenticado.
- */
 export async function deleteGoogleEvent(
   userId: string,
   googleEventId: string,

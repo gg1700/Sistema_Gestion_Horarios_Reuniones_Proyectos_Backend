@@ -35,8 +35,6 @@ export interface CalendarEventResponse {
   eventStatus: CalendarEventStatus;
   syncStatus: CalendarEventSyncStatus;
 }
-
-/** Representación interna de calendar_event en PostgreSQL. */
 export interface CalendarEventMirror extends CalendarEventResponse {
   userId: string;
   calendarConnectionId: string;

@@ -109,11 +109,6 @@ async function executeQuery<T>(
   return (await processReturnQuery(query, params)) as T[];
 }
 
-/**
- * Obtiene el calendario seleccionado por el usuario.
- * La conexión se valida mediante external_account,
- * sin aceptar identificadores de propietario del cliente HTTP.
- */
 export async function findGoogleCalendarForUser(
   userId: string,
 ): Promise<GoogleCalendarForUser | null> {
@@ -155,12 +150,6 @@ export async function findGoogleCalendarForUser(
   };
 }
 
-/**
- * Lista eventos del espejo local que se superponen
- * con el intervalo solicitado.
- *
- * No realiza llamadas a Google Calendar.
- */
 export async function listCalendarEventMirrors(
   userId: string,
   query: CalendarEventRangeQuery,
@@ -181,10 +170,6 @@ export async function listCalendarEventMirrors(
   return rows.map(mapCalendarEvent);
 }
 
-/**
- * Busca un evento exclusivamente por ID local y propietario.
- * Un evento ajeno devuelve null, evitando IDOR.
- */
 export async function findOwnedCalendarEvent(
   userId: string,
   eventId: string,
@@ -203,13 +188,6 @@ export async function findOwnedCalendarEvent(
   return rows[0] ? mapCalendarEvent(rows[0]) : null;
 }
 
-/**
- * Inserta o actualiza el espejo de un evento de Google.
- *
- * Conserva is_public cuando no se proporciona explícitamente.
- * El upsert nunca cambia el propietario ni la conexión original.
- * La operación debe ejecutarse después de la operación remota.
- */
 export async function upsertCalendarEventMirror(
   input: UpsertCalendarEventMirrorInput,
   client?: PoolClient,
@@ -300,12 +278,6 @@ export async function upsertCalendarEventMirror(
   return mapCalendarEvent(rows[0]);
 }
 
-/**
- * Elimina un evento del espejo local.
- *
- * Solo elimina el registro perteneciente al usuario indicado.
- * Debe invocarse después de confirmar la eliminación en Google.
- */
 export async function deleteCalendarEventMirror(
   userId: string,
   eventId: string,

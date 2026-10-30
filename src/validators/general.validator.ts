@@ -39,7 +39,7 @@ export function validateDate(value: unknown, field: string) {
     throw new ValidationError(`${field}: debe ser una cadena de texto`);
   }
   const formatedValue = new Date(value);
-  if (isNaN(formatedValue.getTime()) || !(formatedValue instanceof Date)) {
+  if (isNaN(formatedValue.getTime())) {
     throw new ValidationError(`${field}: fecha invalida`);
   }
   return formatedValue;

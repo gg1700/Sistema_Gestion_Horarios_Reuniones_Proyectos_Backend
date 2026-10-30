@@ -2,6 +2,7 @@ import * as MeetingReqTypes from "../types/meeting-requests.types";
 import { ValidationError } from "../helpers/errors.helper";
 import { collapseSpaces } from "../utils/normalize";
 import * as GeneralValidations from "../validators/general.validator";
+import * as RegexConstants from "../utils/constants/regex.constants";
 
 function validateHandlename(handlename: unknown) {
   if (!handlename || (typeof handlename !== "string")) {
@@ -30,6 +31,10 @@ function validateTimezone(timezone: unknown) {
     throw new ValidationError("Tipo de dato invalido en la zona horaria");
   }
   const formatedTimezone = timezone.trim();
+  const validTimezone = (Intl as any).supportedValuesOf("timeZone") as string[];
+  if (!validTimezone.includes(formatedTimezone) && RegexConstants.timezoneRegex.test(formatedTimezone)) {
+    throw new ValidationError("Zona horaria invalida");
+  } 
   return formatedTimezone;
 }
 

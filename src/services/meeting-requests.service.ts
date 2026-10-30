@@ -6,6 +6,7 @@ import * as MeetingReqRepo from "../repositories/meeting-requests.repository";
 import * as Mapper from "../helpers/mapper.helper";
 import { ValidationError } from "../helpers/errors.helper";
 import * as DateUtils from "../utils/date";
+import { ServerError } from "../helpers/errors.helper";
 
 export async function createMeetingRequest(userId: string, meetingReqInfo: MeetingReqTypes.MeetingRequest) {
   try {
@@ -27,15 +28,15 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
     if (!publicCalendarFound)
       return { result: false, statusCode: 400, message: "El usuario solicitado no tiene un calendario publico disponible" };
 
-    if (formatedInfo.start_at.getTime() <= Date.now())
+    if (formatedInfo.requested_start_at.getTime() <= Date.now())
       throw new ValidationError("La fecha de inicio debe ser futura");
-    if (formatedInfo.end_at <= formatedInfo.start_at)
+    if (formatedInfo.requested_end_at <= formatedInfo.requested_start_at)
       throw new ValidationError("La fecha de finalización debe ser posterior al inicio");
 
     const recipientTimezone = await MeetingReqRepo.findRecipientTimezone(recipientUserId);
     const timezone = (!recipientTimezone || recipientTimezone.length === 0) ? "UTC" : recipientTimezone[0].timezone;
-    const startTime = formatedInfo.start_at;
-    const endTime = formatedInfo.end_at;
+    const startTime = formatedInfo.requested_start_at;
+    const endTime = formatedInfo.requested_end_at;
     const startDay = DateUtils.getLocalWeekDay(startTime, timezone);
     const endDay = DateUtils.getLocalWeekDay(endTime, timezone)
     const startHour = DateUtils.getLocalTime(startTime, timezone);
@@ -43,7 +44,11 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
     if (startDay !== endDay)
       return { result: false, statusCode: 400, message: "No es posible solicitar una reunion que dure mas de un dia" };
 
-    const ans = await processTransaction<unknown>(async function (client: PoolClient) {
+    const ans = await processTransaction<MeetingReqTypes.CreateMeetingRequestResult>(async function (client: PoolClient) {
+      const recipientLooked = await MeetingReqRepo.lockRecipientUser(recipientUserId, client);
+      if (!recipientLooked)
+        return { result: false, statusCode: 404, message: "El usuario solicitado ya no esta disponible" }; 
+      
       const availableSchedules = await MeetingReqRepo.
         findAvailableSchedules(recipientUserId, startDay, startHour, endHour, client);
       if (!availableSchedules || availableSchedules.length === 0) {
@@ -89,6 +94,14 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
 
     return ans;
   } catch (err) {
+    if (err instanceof ServerError) {
+      return {
+        result: false,
+        statusCode: err.statusCode,
+        message: err.message
+      };
+    }
+
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
   }
 }

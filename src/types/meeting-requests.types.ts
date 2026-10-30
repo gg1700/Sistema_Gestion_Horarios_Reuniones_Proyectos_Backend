@@ -11,8 +11,8 @@ export interface MeetingRequestDB {
   recipient_handle: string;
   title: string;
   message?: string;
-  start_at: Date;
-  end_at: Date;
+  requested_start_at: Date;
+  requested_end_at: Date;
   timezone: string;
 }
 
@@ -26,4 +26,10 @@ export enum NotificationType {
 
 export enum CalendarEvent {
   CANCELLED = "cancelled"
+}
+export interface CreateMeetingRequestResult {
+  result: boolean;
+  statusCode: number;
+  message: string;
+  data?: MeetingRequestDB;
 }

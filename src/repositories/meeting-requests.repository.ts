@@ -69,8 +69,17 @@ export async function createMeetingRequest(
     timezone, title, message, status)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     RETURNING *`;
-  const { title, message, start_at, end_at, timezone } = requestInfo;
-  const values = [userId, recipientUserId, start_at, end_at, timezone, title, message, MeetingReqTypes.MeetingRequestStatus.PENDING];
+  const { title, message, requested_start_at, requested_end_at, timezone } = requestInfo;
+  const values = [
+    userId,
+    recipientUserId,
+    requested_start_at,
+    requested_end_at,
+    timezone,
+    title,
+    message,
+    MeetingReqTypes.MeetingRequestStatus.PENDING
+  ];
   const newMeetingRequest = await client.query(query, values);
   return newMeetingRequest.rows;
 }
@@ -99,4 +108,16 @@ export async function createNotification(
   ];
   const notificacion = await client.query(query, values);
   return notificacion.rows;
+}
+
+export async function lockRecipientUser(
+  recipientUserId: string,
+  client: PoolClient
+) {
+  const query = `SELECT id FROM public."user"
+    WHERE id = $1 AND deleted_at IS NULL AND status = 'active'
+    FOR UPDATE`;
+  const values = [recipientUserId]
+  const result = await client.query(query, values);
+  return result.rows.length !== 0;
 }

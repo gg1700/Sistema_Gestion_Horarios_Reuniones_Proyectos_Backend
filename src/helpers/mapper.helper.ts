@@ -173,8 +173,8 @@ export function meetingReqInfoToDB(payload: MeetingReqTypes.MeetingRequest) {
   const result: MeetingReqTypes.MeetingRequestDB = {
     recipient_handle: payload.recipientHandle,
     title: payload.title,
-    start_at: payload.startsAt,
-    end_at: payload.endsAt,
+    requested_start_at: payload.startsAt,
+    requested_end_at: payload.endsAt,
     timezone: payload.timeZone
   }
   if (payload.message !== undefined) result.message = payload.message;

@@ -38,21 +38,21 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
     const validatedUserId = GeneralValidations.validateId(userId);
     const { status, page, limit } = req.query;
 
-    if (status && (typeof status !== "string" ||
+    if ((status !== undefined) && (typeof status !== "string" ||
       !Object.values(MeetingReqTypes.MeetingRequestStatus).includes(status as MeetingReqTypes.MeetingRequestStatus))) {
       return res.status(400).json({ success: false, message: "Valor de estado invalido" });
     }
     let parsedPage = undefined;
-    if (page) {
-      if (page !== undefined && typeof page !== "string")
+    if (page !== undefined) {
+      if (typeof page !== "string")
         return res.status(400).json({ success: false, message: "Valor de paginacion invalido" });
       parsedPage = Number(page);
       if (!Number.isSafeInteger(parsedPage) || parsedPage <= 0)
         return res.status(400).json({ success: false, message: "Valor de paginacion invalido" });
     }
     let parsedLimit = undefined;
-    if (limit) {
-      if (limit !== undefined && typeof limit !== "string")
+    if (limit !== undefined) {
+      if (typeof limit !== "string")
         return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });
       parsedLimit = Number(limit);
       if (!Number.isSafeInteger(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100)

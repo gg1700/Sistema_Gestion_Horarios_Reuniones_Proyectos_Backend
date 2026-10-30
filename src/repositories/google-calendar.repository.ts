@@ -34,6 +34,7 @@ export async function findSelectedCalendar(
   return (rows[0] as CalendarConnectionRow) ?? null;
 }
 
+
 export async function saveSelectedCalendar(
   userId: string,
   calendar: SelectedGoogleCalendar
@@ -54,7 +55,34 @@ export async function saveSelectedCalendar(
       throw new Error("reconnection_required");
     }
 
-    await client.query(
+    const { rows: savedChoices } = await client.query<{
+      google_calendar_id: string;
+    }>(
+      `SELECT google_calendar_id
+       FROM public.calendar_calendar_choice
+       WHERE user_id = $1`,
+      [userId]
+    );
+
+    if (
+      savedChoices[0] &&
+      savedChoices[0].google_calendar_id !== calendar.calendarId
+    ) {
+      throw new Error("calendar_selection_locked");
+    }
+
+    if (!savedChoices[0]) {
+      await client.query(
+        `INSERT INTO public.calendar_calendar_choice (
+           user_id,
+           google_calendar_id
+         )
+         VALUES ($1, $2)`,
+        [userId, calendar.calendarId]
+      );
+    }
+
+    const result = await client.query(
       `INSERT INTO public.calendar_connection (
          external_account_id,
          google_calendar_id,
@@ -65,11 +93,13 @@ export async function saveSelectedCalendar(
        VALUES ($1, $2, $3, $4, 'connected')
        ON CONFLICT (external_account_id)
        DO UPDATE SET
-         google_calendar_id = EXCLUDED.google_calendar_id,
          name = EXCLUDED.name,
          timezone = EXCLUDED.timezone,
          status = 'connected',
-         updated_at = NOW()`,
+         updated_at = NOW()
+       WHERE public.calendar_connection.google_calendar_id =
+             EXCLUDED.google_calendar_id
+       RETURNING id`,
       [
         account.id,
         calendar.calendarId,
@@ -77,6 +107,10 @@ export async function saveSelectedCalendar(
         calendar.timezone
       ]
     );
+
+    if (result.rowCount === 0) {
+      throw new Error("calendar_selection_locked");
+    }
 
     return calendar;
   });

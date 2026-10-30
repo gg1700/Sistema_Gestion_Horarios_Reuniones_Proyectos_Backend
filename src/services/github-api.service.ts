@@ -2,6 +2,8 @@ import type { Octokit } from "octokit";
 import * as ArrayConstants from "../utils/constants/array.constants";
 import * as GithubTypes from "../types/github.types";
 
+export const GITHUB_ACTIVITY_LIST_LIMIT = 50;
+
 export async function getGithubActivityList(octokit: Octokit, username: string) {
   try {
     const { data } = await octokit.request(`GET /users/{username}/events`, {
@@ -10,17 +12,20 @@ export async function getGithubActivityList(octokit: Octokit, username: string) 
       headers: { "X-GitHub-Api-Version": "2026-03-10" }
     });
 
-    const filteredEvents = data.filter((e) => e.type !== null && ArrayConstants.GITHUB_EVENT_TYPES.includes(e.type));
-    const formatedEvents: GithubTypes.EventActivity[] = [];
-    filteredEvents.forEach((e) => {
-      formatedEvents.push({
-        type: e.type,
-        repo: e.repo,
-        date: e.created_at,
-        payload: e.payload
-      });
-    });
-    return { 
+    const filteredEvents = data
+      .filter((e) =>
+        e.type !== null &&
+        ArrayConstants.GITHUB_EVENT_TYPES.includes(e.type)
+      )
+      .slice(0, GITHUB_ACTIVITY_LIST_LIMIT);
+
+    const formatedEvents: GithubTypes.EventActivity[] = filteredEvents.map((e) => ({
+      type: e.type,
+      repo: e.repo,
+      date: e.created_at,
+      payload: e.payload
+    }));
+    return {
       result: true,
       statusCode: 200,
       message: "Actividad reciente de GitHub del usuario obtenida correctamente",

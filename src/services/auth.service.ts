@@ -1,11 +1,9 @@
 import * as ProfileRepo from "../repositories/profile.repository";
 import * as AuthRepo from "../repositories/auth.repository";
 import * as ProviderService from "./provider.service";
-import bcrypt from "bcrypt";
 import * as AuthTypes from "../types/auth.types";
-import * as SessionService from "./session.service";
 import { registerUserToDB, userFromDB } from "../helpers/mapper.helper";
-import { ConflictError, ServerError } from "../helpers/errors.helper";
+import { ConflictError, NotFoundError, ServerError } from "../helpers/errors.helper";
 
 export async function viewAccountVinculation(userId: string) {
   try {
@@ -56,25 +54,35 @@ export async function revokeAccessAccount(userId: string, provider: string) {
   }
 }
 
-async function verifyUserAvailability(email: string, handleName: string) {
-  const emailTaken = await AuthRepo.existsEmail(email);
-  if (emailTaken) throw new ConflictError("El correo electronico ya esta registrado");
-  const handleNameTaken = await AuthRepo.existsHandleName(handleName);
-  if (handleNameTaken) throw new ConflictError("El nombre de usuario ya esta registrado");
+async function findPendingUser(userId: string) {
+  const user = await AuthRepo.findRegistrationUser(userId);
+  if (!user) throw new NotFoundError("El usuario no existe");
+  if (user.registration_completed) throw new ConflictError("El registro ya fue completado");
+  return user;
 }
 
-export async function registerUser(newUser: AuthTypes.RegisterUser) {
+export async function getRegistrationStatus(userId: string) {
   try {
-    await verifyUserAvailability(newUser.email, newUser.handleName);
-    const passwordHash = await bcrypt.hash(newUser.password, 10);
-    const insertedUser = await AuthRepo.insertUser(registerUserToDB(newUser, passwordHash));
-    const user = userFromDB(insertedUser);
-    const session = SessionService.createSession(user.id, user.handleName);
-    return { result: true, statusCode: 201, message: "Usuario registrado correctamente", data: { user: user, session: session } };
-  } 
+    const user = await AuthRepo.findRegistrationUser(userId);
+    if (!user) return { result: false, statusCode: 404, message: "El usuario no existe" };
+    return { result: true, statusCode: 200, message: "Estado del registro obtenido correctamente", data: { user: userFromDB(user) } };
+  } catch (error) {
+    return { result: false, statusCode: 500, message: (error as Error).message };
+  }
+}
+
+export async function completeRegistration(userId: string, registration: AuthTypes.RegisterUser) {
+  try {
+    await findPendingUser(userId);
+    const handleNameTaken = await AuthRepo.existsHandleNameForOtherUser(registration.handleName, userId);
+    if (handleNameTaken) throw new ConflictError("El nombre de usuario ya esta registrado");
+    const updatedUser = await AuthRepo.completeRegistration(userId, registerUserToDB(registration));
+    if (!updatedUser) throw new ConflictError("El registro ya fue completado");
+    return { result: true, statusCode: 200, message: "Registro completado correctamente", data: { user: userFromDB(updatedUser) } };
+  }
   catch (error) {
     if ((error as { code?: string }).code === "23505") {
-      return { result: false, statusCode: 409, message: "El correo electronico o el nombre de usuario ya estan registrados" };
+      return { result: false, statusCode: 409, message: "El nombre de usuario ya esta registrado" };
     }
     const statusCode = error instanceof ServerError ? error.statusCode : 500;
     return { result: false, statusCode: statusCode, message: (error as Error).message };

@@ -10,8 +10,6 @@ export const regexURLScheme = /^[a-z][a-z0-9+.-]*:/i;
 
 export const regexHandleName = /^[a-z0-9-]{3,50}$/;
 
-export const regexPassword = /^(?=.*[A-Za-z])(?=.*\d)\S{8,72}$/;
-
 export const regexDate = /^\d{4}-\d{2}-\d{2}$/;
 
 export const regexForbiddenUrlCharacters = /[\s\p{Cc}]/u;

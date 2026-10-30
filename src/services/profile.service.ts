@@ -11,6 +11,7 @@ import * as WorkExpTypes from "../types/work_experience.types";
 import { today, tody60YearsAgo } from "../utils/constants/date.constants";
 import { filterPublicProfile } from "./public-profile-filter.service";
 import { findPublicRepositories } from "../repositories/github-repository.repository";
+import { findSectionVisibility } from "../repositories/visibility.repository";
 
 export async function getOwnProfile(userId: string): Promise<Profile> {
   const profile = await ProfileReadRepo.findOwnProfile(userId);
@@ -247,7 +248,6 @@ function publicActivityGrid(raw: string | null) {
   }
 }
 
-
 export async function getPublicProfile(handle: string) {
   const user = await ProfileRepo.findPublicProfileByHandle(handle);
 
@@ -261,13 +261,14 @@ export async function getPublicProfile(handle: string) {
     return null;
   }
 
+  const sectionVisibility = await findSectionVisibility(user.id);
   const github = await ProfileRepo.findPublicGitHubState(user.id);
 
-  const repositories = github.githubConnected && github.repositoriesVisible
+  const repositories = sectionVisibility.repositories && github.githubConnected
     ? await findPublicRepositories(user.id)
     : [];
 
-  const showActivity = github.githubConnected && github.activityVisible;
+  const showActivity = sectionVisibility.githubActivity && github.githubConnected;
 
   const publicProfile = filterPublicProfile({
     id: profile.id,
@@ -284,6 +285,7 @@ export async function getPublicProfile(handle: string) {
     countries: profile.countries,
     workExperiences: profile.work_experiences,
     links: profile.links,
+    sectionVisibility,
     repositories,
     githubActivityList: showActivity
       ? publicActivityList(github.activityList)

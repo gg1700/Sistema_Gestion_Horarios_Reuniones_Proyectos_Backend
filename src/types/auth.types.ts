@@ -19,16 +19,12 @@ export interface RegisterUser {
   handleName: string;
   name: string;
   firstSurname: string;
-  email: string;
-  password: string;
 }
 
 export interface RegisterUserDB {
   handle_name: string;
   name: string;
   first_surname: string;
-  email: string;
-  password_hash: string;
 }
 
 export interface UserDB {
@@ -37,6 +33,7 @@ export interface UserDB {
   name: string;
   first_surname: string;
   email: string;
+  registration_completed: boolean;
 }
 
 export interface User {
@@ -45,6 +42,7 @@ export interface User {
   name: string;
   firstSurname: string;
   email: string;
+  registrationCompleted: boolean;
 }
 
 export interface Session {

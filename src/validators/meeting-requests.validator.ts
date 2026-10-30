@@ -50,7 +50,7 @@ export function validateMeetingReqInfo(payload: unknown) {
     recipientHandle: validateHandlename(p.recipientHandle),
     title: GeneralValidations.validateProperNoun(p.title, "Titulo de la Reunion"),
     startsAt: GeneralValidations.validateDate(p.startsAt, "Hora de Inicio"),
-    endsAt: GeneralValidations.validateDate(p.endsAt, "Hora de Inicio"),
+    endsAt: GeneralValidations.validateDate(p.endsAt, "Hora de Finalizacion"),
     timeZone: validateTimezone(p.timeZone)
   }
   if (p.message !== undefined) proccessedInfo.message = validateMessage(p.message);

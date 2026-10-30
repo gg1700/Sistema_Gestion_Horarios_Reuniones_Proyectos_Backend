@@ -15,4 +15,11 @@ router.post(
   MeetingReqController.createMeetingRequest
 );
 
+router.get(
+  "/sent",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  MeetingReqController.listSentMeetingRequests
+);
+
 export default router;

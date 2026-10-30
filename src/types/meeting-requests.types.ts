@@ -17,7 +17,10 @@ export interface MeetingRequestDB {
 }
 
 export enum MeetingRequestStatus {
-  PENDING = "pending"
+  PENDING = "pending",
+  ACCEPTED = "accepted",
+  REJECTED = "rejected",
+  CANCELLED = "cancelled"
 }
 
 export enum NotificationType {

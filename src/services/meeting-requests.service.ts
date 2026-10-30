@@ -107,3 +107,28 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
   }
 }
+
+export async function listSentMeetingRequests(
+  userId: string,
+  status?: string,
+  page?: number,
+  limit?: number) {
+  try {
+    const userFound = await ProfileRepo.existsUser(userId);
+    if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
+
+    const sentRequests = await MeetingReqRepo.listRequests(userId, status, page, limit);
+    if (!sentRequests) return { result: false, statusCode: 400, message: "Error al obtener solicitudes enviadas" };
+    if (sentRequests.length === 0)
+      return { result: true, statusCode: 200, message: "El usuario no ha tiene solicitudes enviadas", data: [] };
+    
+    return {
+      result: true,
+      statusCode: 200,
+      message: "Lista de solicitudes enviadas por el usuario obtenida correctamente",
+      data: sentRequests
+    };
+  } catch (err) {
+    return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
+  }
+}

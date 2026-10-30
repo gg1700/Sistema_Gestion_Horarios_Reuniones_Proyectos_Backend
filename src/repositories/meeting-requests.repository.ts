@@ -121,3 +121,22 @@ export async function lockRecipientUser(
   const result = await client.query(query, values);
   return result.rows.length !== 0;
 }
+
+export async function listRequests(userId: string, status?: string, page?: number, limit?: number) {
+  const filter = (status !== undefined) ? `AND mr.status = $2` : "";
+  const limitConstraint = (limit !== undefined) ? `LIMIT $3` : `LIMIT 20`;
+  const pageConstraint = (page !== undefined) ? `OFFSET $4` : `OFFSET 1`;
+  const query = `SELECT mr.id, mr.title, mr.message, mr.requested_start_at, mr.requested_end_at,
+    mr.timezone, mr.status, mr.created_at, mr.resolved_at, mr.owner_response_message,
+    recipient.handle_name AS recipient_handle,
+    recipient.name AS recipient_name,
+    recipient.first_surname AS recipient_surname
+    FROM "meeting_request" mr
+    JOIN "user" recipient ON recipient.id = mr.recipient_user_id
+    WHERE mr.requester_user_id = $1 ${filter}
+    ORDER BY mr.created_at DESC, mr.id DESC
+    ${limitConstraint} ${pageConstraint}`;
+  const values = [userId, status, limit, page];
+  const sentRequests = await processReturnQuery(query, values);
+  return sentRequests;
+}

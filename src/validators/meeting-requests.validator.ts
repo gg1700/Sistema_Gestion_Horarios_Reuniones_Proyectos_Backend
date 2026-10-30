@@ -45,10 +45,10 @@ function validateTimezone(timezone: unknown) {
 }
 
 export function validateMeetingReqInfo(payload: unknown) {
-  const p = payload as MeetingReqTypes.MeetingRequest;
+  const p = GeneralValidations.validateObject(payload, "Body") as unknown as MeetingReqTypes.MeetingRequest;
   const proccessedInfo: MeetingReqTypes.MeetingRequest = {
     recipientHandle: validateHandlename(p.recipientHandle),
-    title: GeneralValidations.validateProperNoun(p.title, "Experiencia Profesional"),
+    title: GeneralValidations.validateProperNoun(p.title, "Titulo de la Reunion"),
     startsAt: GeneralValidations.validateDate(p.startsAt, "Hora de Inicio"),
     endsAt: GeneralValidations.validateDate(p.endsAt, "Hora de Inicio"),
     timeZone: validateTimezone(p.timeZone)

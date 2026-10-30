@@ -4,7 +4,6 @@ import * as MeetingReqTypes from "../types/meeting-requests.types";
 import * as ProfileRepo from "../repositories/profile.repository";
 import * as MeetingReqRepo from "../repositories/meeting-requests.repository";
 import * as Mapper from "../helpers/mapper.helper";
-import { ValidationError } from "../helpers/errors.helper";
 import * as DateUtils from "../utils/date";
 import { ServerError } from "../helpers/errors.helper";
 
@@ -79,12 +78,12 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
 
       const newMeetingRequest = await MeetingReqRepo.createMeetingRequest(userId, recipientUserId, formatedInfo, client);
       if (!newMeetingRequest || newMeetingRequest.length === 0)
-        throw new ValidationError("Error al registrar solicitud de reunion");
+        return { result: false, statusCode: 500, message: "Error al registrar solicitud de reunion" };
 
       const requestId = newMeetingRequest[0].id;
       const notification = await MeetingReqRepo.createNotification(recipientUserId, userId, requestId, formatedInfo, client);
       if (!notification || notification.length === 0)
-        throw new ValidationError("Error al crear notificacion de solicitud de reunion");
+        return { result: false, statusCode: 500, message: "Error al crear notificacion de solicitud de reunion" };
 
       const formatedData = Mapper.meetingRequestToResponse(newMeetingRequest[0]);
       return {

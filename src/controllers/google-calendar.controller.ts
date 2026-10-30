@@ -6,6 +6,7 @@ import {
   unlinkGoogleCalendar,
   GoogleCalendarError
 } from "../services/google-calendar.service";
+
 function handleError(res: Response, error: unknown): void {
   if (error instanceof GoogleCalendarError) {
     const status: Record<GoogleCalendarError["code"], number> = {
@@ -14,7 +15,8 @@ function handleError(res: Response, error: unknown): void {
       google_calendar_unavailable: 502,
       calendar_not_found: 404,
       calendar_read_only: 403,
-      invalid_calendar_id: 400
+      invalid_calendar_id: 400,
+      calendar_selection_locked: 409
     };
 
     res.status(status[error.code]).json({

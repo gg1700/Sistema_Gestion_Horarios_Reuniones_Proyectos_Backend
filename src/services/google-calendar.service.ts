@@ -12,6 +12,7 @@ export class GoogleCalendarError extends Error {
       | "calendar_not_found"
       | "calendar_read_only"
       | "invalid_calendar_id"
+      | "calendar_selection_locked"
   ) {
     super(code);
     this.name = "GoogleCalendarError";
@@ -77,7 +78,7 @@ export async function selectGoogleCalendar(
   const calendars = await getCalendars(userId);
 
   const calendar = calendars.find(
-    (item) => item.id === calendarId
+    item => item.id === calendarId
   );
 
   if (!calendar) {
@@ -100,6 +101,13 @@ export async function selectGoogleCalendar(
       status: "connected"
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "calendar_selection_locked"
+    ) {
+      throw new GoogleCalendarError("calendar_selection_locked");
+    }
+
     if (
       error instanceof Error &&
       error.message === "reconnection_required"

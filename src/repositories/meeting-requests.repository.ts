@@ -259,3 +259,53 @@ export async function createUpdateNotification(
   const notification = await client.query(query, values);
   return notification.rows;
 }
+
+export async function cancelPendingRequest(
+  requestId: string,
+  userId: string,
+  client: PoolClient) {
+  const query = `UPDATE "meeting_request"
+    SET status = $3, resolved_at = NOW()
+    WHERE id = $1
+    AND requester_user_id = $2
+    AND status = $4
+    RETURNING id, title, message, requested_start_at,
+    requested_end_at, timezone, status, created_at`;
+  const values = [
+    requestId,
+    userId,
+    MeetingReqTypes.MeetingRequestStatus.CANCELLED,
+    MeetingReqTypes.MeetingRequestStatus.PENDING
+  ];
+  const cancelledRequest = await client.query(query, values);
+  return cancelledRequest.rows;
+}
+
+export async function createCancelNotification(
+  recipientUserId: string,
+  requesterUserId: string,
+  requestId: string,
+  title: string,
+  client: PoolClient) {
+  const query = `INSERT INTO "notification" (
+    user_id, actor_user_id, meeting_request_id, notification_type,
+    title, message, payload)
+    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    RETURNING *`;
+  const payload = JSON.stringify({
+    requestId,
+    action: "cancelled"
+  });
+  const values = [
+    recipientUserId,
+    requesterUserId,
+    requestId,
+    MeetingReqTypes.NotificationType.CANCELLED,
+    "Solicitud de reunion cancelada",
+    `El solicitante ha cancelado la solicitud de reunion: ${title}`,
+    payload
+  ];
+  const notification = await client.query(query, values);
+  return notification.rows;
+}
+

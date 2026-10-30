@@ -25,7 +25,8 @@ export enum MeetingRequestStatus {
 
 export enum NotificationType {
   CREATED = "meeting_request_created",
-  UPDATED = "meeting_request_updated"
+  UPDATED = "meeting_request_updated",
+  CANCELLED = "meeting_request_cancelled"
 }
 
 export enum CalendarEvent {

@@ -100,3 +100,22 @@ export async function updateMeetingRequest(req: Request, res: Response) {
     });
   }
 }
+
+export async function cancelMeetingRequest(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const requestId = MeetingReqValidation.validateMeetingRequestId(req.params.requestId);
+
+    const { result, statusCode, message, data } = await MeetingReqService.cancelMeetingRequest(validatedUserId, requestId);
+    if (!result) return res.status(statusCode).json({ success: false, message });
+
+    return res.status(statusCode).json({ success: true, message, data });
+  } catch (err) {
+    const statusCode = err instanceof ServerError ? err.statusCode : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: (statusCode === 500) ? "Error interno del servidor" : (err as Error).message
+    });
+  }
+}

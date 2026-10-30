@@ -30,4 +30,11 @@ router.patch(
   MeetingReqController.updateMeetingRequest
 );
 
+router.delete(
+  "/:requestId",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  MeetingReqController.cancelMeetingRequest
+);
+
 export default router;

@@ -242,3 +242,55 @@ export async function updateMeetingRequest(
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}`};
   }
 }
+
+export async function cancelMeetingRequest(userId: string, requestId: string) {
+  try {
+    const ans = await processTransaction(async function (client: PoolClient) {
+      const requestFound = await MeetingReqRepo.findRequestForRequester(requestId, userId, client);
+      if (!requestFound || requestFound.length === 0)
+        return { result: false, statusCode: 404, message: "Solicitud de reunion no encontrada" };
+
+      const request = requestFound[0];
+      if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING)
+        return { result: false, statusCode: 409, message: "Solo se pueden cancelar solicitudes pendientes" };
+
+      const cancelledRequest = await MeetingReqRepo.cancelPendingRequest(requestId, userId, client);
+      if (!cancelledRequest || cancelledRequest.length === 0) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "No se pudo cancelar la solicitud; puede que ya no este pendiente"
+        };
+      }
+
+      const notification = await MeetingReqRepo.
+        createCancelNotification(request.recipient_user_id, userId, requestId, request.title, client);
+      if (!notification || notification.length === 0)
+        throw new ServerError("Error al crear la notificacion de cancelacion de solicitud");
+
+      const formatedData = Mapper.meetingRequestToResponse(cancelledRequest[0]);
+      return {
+        result: true,
+        statusCode: 200,
+        message: "Solicitud de reunion cancelada correctamente",
+        data: formatedData
+      };
+    });
+
+    return ans;
+  } catch (err) {
+    if (err instanceof ServerError) {
+      return {
+        result: false,
+        statusCode: err.statusCode,
+        message: err.message
+      };
+    }
+
+    return {
+      result: false,
+      statusCode: 500,
+      message: `Error en el servicio: ${(err as Error).message}`
+    };
+  }
+}

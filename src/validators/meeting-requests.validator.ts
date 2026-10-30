@@ -32,7 +32,7 @@ function validateTimezone(timezone: unknown) {
   }
   const formatedTimezone = timezone.trim();
   const validTimezone = (Intl as any).supportedValuesOf("timeZone") as string[];
-  if (!validTimezone.includes(formatedTimezone) && RegexConstants.timezoneRegex.test(formatedTimezone)) {
+  if (!validTimezone.includes(formatedTimezone) && !RegexConstants.timezoneRegex.test(formatedTimezone)) {
     throw new ValidationError("Zona horaria invalida");
   } 
   return formatedTimezone;

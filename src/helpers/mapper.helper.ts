@@ -180,3 +180,16 @@ export function meetingReqInfoToDB(payload: MeetingReqTypes.MeetingRequest) {
   if (payload.message !== undefined) result.message = payload.message;
   return result;
 }
+
+export function meetingRequestToResponse(request: MeetingReqTypes.MetingRequestRow) {
+  return {
+    id: request.id,
+    title: request.title,
+    message: request.message,
+    startsAt: request.requested_start_at,
+    endsAt: request.requested_end_at,
+    timeZone: request.timezone,
+    status: request.status,
+    createdAt: request.created_at
+  };
+}

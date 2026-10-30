@@ -84,11 +84,12 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
       if (!notification || notification.length === 0)
         throw new ValidationError("Error al crear notificacion de solicitud de reunion");
 
+      const formatedData = Mapper.meetingRequestToResponse(newMeetingRequest[0]);
       return {
         result: true,
         statusCode: 201,
         message: "Solicitud de reunion registrada correctamente",
-        data: newMeetingRequest[0]
+        data: formatedData
       };
     });
 

@@ -31,5 +31,25 @@ export interface CreateMeetingRequestResult {
   result: boolean;
   statusCode: number;
   message: string;
-  data?: MeetingRequestDB;
+  data?: MeetingRequestResponse;
+}
+export interface MetingRequestRow {
+  id: string,
+  title: string,
+  message?: string,
+  requested_start_at: Date,
+  requested_end_at: Date,
+  timezone: string,
+  status: string,
+  created_at: Date
+}
+export interface MeetingRequestResponse {
+  id: string;
+  title: string;
+  message?: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  timeZone: string;
+  status: MeetingRequestStatus;
+  createdAt: Date;
 }

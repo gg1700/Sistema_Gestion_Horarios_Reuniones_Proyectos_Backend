@@ -128,7 +128,8 @@ export async function listRequests(
   status?: string,
   page?: number,
   limit?: number) {
-  const user = (actionType === "sent") ? `requester` : `recipient`;
+  const userConstraint = (actionType === "sent") ? "requester_user_id": "recipient_user_id";
+  const counterpart = (actionType === "sent") ? "recipient" : "requester";
   const limitValue = (limit !== undefined) ? limit : 20;
   const offsetValue = (page !== undefined) ? ((page - 1) * limitValue) : 0;
   const values = [userId, limitValue, offsetValue];
@@ -139,12 +140,12 @@ export async function listRequests(
   }
   const query = `SELECT mr.id, mr.title, mr.message, mr.requested_start_at, mr.requested_end_at,
     mr.timezone, mr.status, mr.created_at, mr.resolved_at, mr.owner_response_message,
-    ${user}.handle_name AS recipient_handle,
-    ${user}.name AS recipient_name,
-    ${user}.first_surname AS recipient_surname
+    ${counterpart}.handle_name AS recipient_handle,
+    ${counterpart}.name AS recipient_name,
+    ${counterpart}.first_surname AS recipient_surname
     FROM "meeting_request" mr
     JOIN "user" recipient ON recipient.id = mr.recipient_user_id
-    WHERE mr.${user}_user_id = $1 ${filter}
+    WHERE mr.${userConstraint} = $1 ${filter}
     ORDER BY mr.created_at DESC, mr.id DESC
     LIMIT $2 OFFSET $3`;
   const sentRequests = await processReturnQuery(query, values);

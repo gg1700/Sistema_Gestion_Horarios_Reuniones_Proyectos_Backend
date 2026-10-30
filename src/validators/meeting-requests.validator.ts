@@ -10,6 +10,9 @@ function validateHandlename(handlename: unknown) {
   }
   const formatedHandlename = handlename.trim().toLowerCase();
   if ((formatedHandlename.length < 3 || formatedHandlename.length > 50)) {
+    throw new ValidationError("Handlename con cantidad de caracteres invalida");
+  }
+  if (!RegexConstants.regexHandleName.test(formatedHandlename)) {
     throw new ValidationError("Formato de handlename invalido");
   }
   return formatedHandlename;
@@ -31,10 +34,13 @@ function validateTimezone(timezone: unknown) {
     throw new ValidationError("Tipo de dato invalido en la zona horaria");
   }
   const formatedTimezone = timezone.trim();
-  const validTimezone = (Intl as any).supportedValuesOf("timeZone") as string[];
-  if (!validTimezone.includes(formatedTimezone) && !RegexConstants.timezoneRegex.test(formatedTimezone)) {
+  try {
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: formatedTimezone
+    });
+  } catch {
     throw new ValidationError("Zona horaria invalida");
-  } 
+  }
   return formatedTimezone;
 }
 

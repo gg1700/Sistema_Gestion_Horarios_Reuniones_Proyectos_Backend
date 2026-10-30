@@ -40,7 +40,7 @@ export interface MetingRequestRow {
   requested_start_at: Date,
   requested_end_at: Date,
   timezone: string,
-  status: string,
+  status: MeetingRequestStatus,
   created_at: Date
 }
 export interface MeetingRequestResponse {

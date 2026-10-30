@@ -29,19 +29,21 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
       return { result: false, statusCode: 400, message: "El usuario solicitado no tiene un calendario publico disponible" };
 
     if (formatedInfo.requested_start_at.getTime() <= Date.now())
-      throw new ValidationError("La fecha de inicio debe ser futura");
+      return { result: false, statusCode: 400, message: "La fecha de inicio debe ser futura"};
     if (formatedInfo.requested_end_at <= formatedInfo.requested_start_at)
-      throw new ValidationError("La fecha de finalización debe ser posterior al inicio");
+      return { result: false, statusCode: 400, message: "La fecha de finalización debe ser posterior al inicio"};
 
     const recipientTimezone = await MeetingReqRepo.findRecipientTimezone(recipientUserId);
     const timezone = (!recipientTimezone || recipientTimezone.length === 0) ? "UTC" : recipientTimezone[0].timezone;
     const startTime = formatedInfo.requested_start_at;
     const endTime = formatedInfo.requested_end_at;
+    const startDate = DateUtils.getLocalDate(startTime, timezone);
+    const endDate = DateUtils.getLocalDate(endTime, timezone);
     const startDay = DateUtils.getLocalWeekDay(startTime, timezone);
     const endDay = DateUtils.getLocalWeekDay(endTime, timezone)
     const startHour = DateUtils.getLocalTime(startTime, timezone);
     const endHour = DateUtils.getLocalTime(endTime, timezone);
-    if (startDay !== endDay)
+    if (startDay !== endDay || startDate !== endDate)
       return { result: false, statusCode: 400, message: "No es posible solicitar una reunion que dure mas de un dia" };
 
     const ans = await processTransaction<MeetingReqTypes.CreateMeetingRequestResult>(async function (client: PoolClient) {

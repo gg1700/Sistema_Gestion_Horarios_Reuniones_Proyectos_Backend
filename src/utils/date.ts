@@ -19,3 +19,14 @@ export function getLocalTime(date: Date, timeZone: string) {
 
   return localTime;
 }
+
+export function getLocalDate(date: Date, timeZone: string): string {
+  const localDate = date.toLocaleDateString("en-CA", {
+    timeZone: timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  });
+
+  return localDate;
+}

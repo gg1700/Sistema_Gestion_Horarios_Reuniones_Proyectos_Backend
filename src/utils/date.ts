@@ -14,7 +14,7 @@ export function getLocalTime(date: Date, timeZone: string) {
     timeZone: timeZone,
     hour: "2-digit",
     minute: "2-digit",
-    hour12: false
+    hourCycle: "h23"
   });
 
   return localTime;

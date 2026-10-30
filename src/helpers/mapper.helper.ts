@@ -181,7 +181,7 @@ export function meetingReqInfoToDB(payload: MeetingReqTypes.MeetingRequest) {
   return result;
 }
 
-export function meetingRequestToResponse(request: MeetingReqTypes.MetingRequestRow) {
+export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequestRow) {
   return {
     id: request.id,
     title: request.title,

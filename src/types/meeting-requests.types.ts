@@ -33,10 +33,10 @@ export interface CreateMeetingRequestResult {
   message: string;
   data?: MeetingRequestResponse;
 }
-export interface MetingRequestRow {
+export interface MeetingRequestRow {
   id: string,
   title: string,
-  message?: string,
+  message: string | null,
   requested_start_at: Date,
   requested_end_at: Date,
   timezone: string,

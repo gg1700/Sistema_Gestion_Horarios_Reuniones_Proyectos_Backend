@@ -266,9 +266,16 @@ export async function hasAdditionalInfo(userId: string) {
   const query = `SELECT EXISTS (SELECT 1 FROM "user" WHERE id = $1 AND deleted_at IS NULL) AND (
     EXISTS (SELECT 1 FROM "user_surname" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "user_phone" WHERE user_id = $1)
-    OR EXISTS (SELECT 1 FROM "user_email" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "user_email" ue
+      JOIN "email" e ON e.id = ue.email_id
+      JOIN "user" u ON u.id = ue.user_id
+      WHERE ue.user_id = $1 AND e.address <> u.email)
     OR EXISTS (SELECT 1 FROM "address" WHERE user_id = $1)
-    OR EXISTS (SELECT 1 FROM "link" WHERE user_id = $1)
+    OR EXISTS (SELECT 1 FROM "link" l
+      WHERE l.user_id = $1 AND NOT EXISTS (
+        SELECT 1 FROM "external_account" ea
+        WHERE ea.user_id = l.user_id AND ea.provider = 'github'
+          AND LOWER(l.url) = LOWER('https://github.com/' || ea.provider_username)))
     OR EXISTS (SELECT 1 FROM "user_country" WHERE user_id = $1)
     OR EXISTS (SELECT 1 FROM "workexperience" WHERE user_id = $1)) AS registered`;
   const values = [userId];
@@ -336,3 +343,45 @@ export async function insertWorkExperiences(userId: string, workExperiences: Pro
   ];
   await client.query(query, values);
 }
+
+export interface PublicGitHubState {
+  githubConnected: boolean;
+  activityList: string | null;
+  activityGrid: string | null;
+}
+
+export async function findPublicGitHubState(
+  userId: string
+): Promise<PublicGitHubState> {
+  const query = `
+    SELECT
+      EXISTS (
+        SELECT 1
+        FROM public.external_account
+        WHERE user_id = $1
+          AND provider = 'github'
+          AND state = 'active'
+          AND (
+            access_expires_at IS NULL
+            OR access_expires_at > NOW()
+          )
+      ) AS "githubConnected",
+
+      (
+        SELECT activity
+        FROM public.github_activity_list
+        WHERE user_id = $1 AND visible = TRUE
+      ) AS "activityList",
+
+      (
+        SELECT activity
+        FROM public.github_activity_grid
+        WHERE user_id = $1 AND visible = TRUE
+      ) AS "activityGrid"
+  `;
+
+  const rows = await processReturnQuery(query, [userId]);
+
+  return rows[0] as PublicGitHubState;
+}
+

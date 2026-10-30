@@ -1,11 +1,19 @@
 import { Router } from "express";
 import * as RateLimit from "../middlewares/rateLimit.middleware";
 import * as Validations from "../middlewares/validations.middleware";
+import * as Session from "../middlewares/session.middleware";
 import * as AuthController from "../controllers/auth.controller";
 import { oauthCallback } from "../controllers/oauth-callback.controller";
-import * as Session from "../middlewares/session.middleware";
+import { env } from "../config/env.config";
+import { requireRepositoryOrigin } from "../middlewares/repository-origin.middleware";
 
 const router = Router();
+
+// Cierre de la cookie actual. No revoca otras copias del JWT.
+router.post("/logout", requireRepositoryOrigin, (req, res) => {
+  res.clearCookie("session", {httpOnly:true, signed:true, secure:env.NODE_ENV === 'production', sameSite:'lax',path:'/'});
+  res.status(204).end();
+});
 
 router.get(
   "/accounts",
@@ -22,11 +30,20 @@ router.delete(
   AuthController.revokeAccessAccount
 );
 
-router.post(
+router.get(
+  "/register",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  AuthController.getRegistrationStatus
+);
+
+router.patch(
   "/register",
   RateLimit.registerRateLimit,
-  Validations.registerUser,
-  AuthController.registerUser
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  Validations.completeRegistration,
+  AuthController.completeRegistration
 );
 
 router.get(

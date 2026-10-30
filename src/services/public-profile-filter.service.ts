@@ -1,6 +1,9 @@
 import type { Profile } from "../types/profile-response.types";
+import type { SectionVisibility } from "../types/visibility.types";
 
-type VisibleRecord = { visible?: boolean | null };
+type VisibleRecord = {
+  visible?: boolean | null;
+};
 
 type PublicRepositoryInput = VisibleRecord & {
   name: string;
@@ -15,12 +18,19 @@ type PublicActivityInput = VisibleRecord & {
 };
 
 export interface PublicProfileInput extends Profile {
+  sectionVisibility?: Partial<SectionVisibility>;
   repositories?: PublicRepositoryInput[];
   githubActivityList?: PublicActivityInput[];
   githubActivityGrid?: PublicActivityInput[];
 }
 
 export function filterPublicProfile(profile: PublicProfileInput) {
+  const repositoriesVisible =
+    profile.sectionVisibility?.repositories === true;
+
+  const githubActivityVisible =
+    profile.sectionVisibility?.githubActivity === true;
+
   return {
     handleName: profile.handleName,
     name: profile.name,
@@ -32,35 +42,35 @@ export function filterPublicProfile(profile: PublicProfileInput) {
       : null,
 
     phones: (profile.phones ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) => item.visible === true)
+      .map((item) => ({
         phoneNumber: item.phoneNumber,
         countryCode: item.countryCode,
         countryName: item.countryName,
       })),
 
     contactEmails: (profile.contactEmails ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) => item.visible === true)
+      .map((item) => ({
         email: item.email,
       })),
 
     addresses: (profile.addresses ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) => item.visible === true)
+      .map((item) => ({
         address: item.address,
       })),
 
     countries: (profile.countries ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) => item.visible === true)
+      .map((item) => ({
         countryName: item.countryName,
         countryCode: item.countryCode,
       })),
 
     workExperiences: (profile.workExperiences ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) => item.visible === true)
+      .map((item) => ({
         title: item.title,
         description: item.description,
         companyName: item.companyName,
@@ -69,15 +79,17 @@ export function filterPublicProfile(profile: PublicProfileInput) {
       })),
 
     links: (profile.links ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) => item.visible === true)
+      .map((item) => ({
         text: item.text,
         url: item.url,
       })),
 
     repositories: (profile.repositories ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) =>
+        repositoriesVisible && item.visible === true
+      )
+      .map((item) => ({
         name: item.name,
         description: item.description ?? null,
         language: item.language ?? null,
@@ -86,14 +98,18 @@ export function filterPublicProfile(profile: PublicProfileInput) {
       })),
 
     githubActivityList: (profile.githubActivityList ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) =>
+        githubActivityVisible && item.visible === true
+      )
+      .map((item) => ({
         activity: item.activity,
       })),
 
     githubActivityGrid: (profile.githubActivityGrid ?? [])
-      .filter(item => item.visible === true)
-      .map(item => ({
+      .filter((item) =>
+        githubActivityVisible && item.visible === true
+      )
+      .map((item) => ({
         activity: item.activity,
       })),
   };

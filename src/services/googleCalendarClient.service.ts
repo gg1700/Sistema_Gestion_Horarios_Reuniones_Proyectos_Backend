@@ -60,7 +60,7 @@ export class GoogleCalendarClientError extends ServerError {
 
 export async function getValidGoogleAccessToken(userId: string): Promise<string> {
   try {
-    return await getValidGoogleAccessTokenFromService(userId);
+    return await getValidGoogleAccessTokenService(userId);
   } catch (error) {
     if (error instanceof GoogleTokenError) {
       if (error.code === "google_not_connected") {
@@ -69,6 +69,10 @@ export async function getValidGoogleAccessToken(userId: string): Promise<string>
 
       if (error.code === "reconnection_required") {
         throw new GoogleCalendarClientError("reconnection_required", 409);
+      }
+
+      if (error.code === "google_refresh_failed") {
+        throw new GoogleCalendarClientError("google_calendar_unavailable", 503);
       }
     }
 

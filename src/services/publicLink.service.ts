@@ -133,7 +133,7 @@ export class PublicLinkService {
 
     return {
       handleName: account.handleName,
-      url: `${baseUrl}/@${encodeURIComponent(account.handleName)}`,
+      url: `${baseUrl}/${encodeURIComponent(account.handleName)}`,
       publicLinkActive: account.publicLinkActive,
     };
   }

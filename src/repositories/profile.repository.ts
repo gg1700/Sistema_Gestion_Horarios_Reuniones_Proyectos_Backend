@@ -336,3 +336,62 @@ export async function insertWorkExperiences(userId: string, workExperiences: Pro
   ];
   await client.query(query, values);
 }
+
+export interface PublicGitHubState {
+  repositoriesVisible: boolean;
+  activityVisible: boolean;
+  githubConnected: boolean;
+  activityList: string | null;
+  activityGrid: string | null;
+}
+
+export async function findPublicGitHubState(
+  userId: string
+): Promise<PublicGitHubState> {
+  const query = `
+    SELECT
+      EXISTS (
+        SELECT 1
+        FROM public.field_visibility
+        WHERE user_id = $1
+          AND section = 'repositories'
+          AND visible = TRUE
+      ) AS "repositoriesVisible",
+
+      EXISTS (
+        SELECT 1
+        FROM public.field_visibility
+        WHERE user_id = $1
+          AND section = 'github_activity'
+          AND visible = TRUE
+      ) AS "activityVisible",
+
+      EXISTS (
+        SELECT 1
+        FROM public.external_account
+        WHERE user_id = $1
+          AND provider = 'github'
+          AND state = 'active'
+          AND (
+            access_expires_at IS NULL
+            OR access_expires_at > NOW()
+          )
+      ) AS "githubConnected",
+
+      (
+        SELECT activity
+        FROM public.github_activity_list
+        WHERE user_id = $1 AND visible = TRUE
+      ) AS "activityList",
+
+      (
+        SELECT activity
+        FROM public.github_activity_grid
+        WHERE user_id = $1 AND visible = TRUE
+      ) AS "activityGrid"
+  `;
+
+  const rows = await processReturnQuery(query, [userId]);
+
+  return rows[0] as PublicGitHubState;
+}

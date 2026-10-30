@@ -24,7 +24,8 @@ export enum MeetingRequestStatus {
 }
 
 export enum NotificationType {
-  CREATED = "meeting_request_created"
+  CREATED = "meeting_request_created",
+  UPDATED = "meeting_request_updated"
 }
 
 export enum CalendarEvent {
@@ -91,7 +92,7 @@ export interface ListedRequestsRows {
 
 export interface UpdateMeetingRequest {
   title?: string;
-  message?: string | null;
+  message?: string;
   startsAt?: Date;
   endsAt?: Date;
   timeZone?: string;
@@ -99,7 +100,7 @@ export interface UpdateMeetingRequest {
 
 export interface UpdateMeetingRequestDB {
   title?: string;
-  message?: string | null;
+  message?: string;
   requested_start_at?: Date;
   requested_end_at?: Date;
   timezone?: string;

@@ -234,3 +234,28 @@ export async function updatePendingRequest(
   const updatedRequest = await client.query(query, values);
   return updatedRequest.rows;
 }
+
+export async function createUpdateNotification(
+  recipientUserId: string,
+  requesterUserId: string,
+  requestId: string,
+  requestInfo: MeetingReqTypes.UpdateMeetingRequestDB,
+  client: PoolClient) {
+  const query = `INSERT INTO "notification" (
+    user_id, actor_user_id, meeting_request_id, notification_type,
+    title, message, payload)
+    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    RETURNING *`;
+  const payload = JSON.stringify({ requestId, action: "updated" });
+  const values = [
+    recipientUserId,
+    requesterUserId,
+    requestId,
+    MeetingReqTypes.NotificationType.UPDATED,
+    "Solicitud de reunion actualizada",
+    `El solicitante ha actualizado la solicitud de reunion${requestInfo.title ? `: ${requestInfo.title}` : ""}`,
+    payload
+  ];
+  const notification = await client.query(query, values);
+  return notification.rows;
+}

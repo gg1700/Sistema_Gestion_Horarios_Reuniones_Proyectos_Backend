@@ -5,7 +5,7 @@ import * as ProfileRepo from "../repositories/profile.repository";
 import * as MeetingReqRepo from "../repositories/meeting-requests.repository";
 import * as Mapper from "../helpers/mapper.helper";
 import * as DateUtils from "../utils/date";
-import { ServerError } from "../helpers/errors.helper";
+import { ServerError, ValidationError } from "../helpers/errors.helper";
 
 export async function createMeetingRequest(userId: string, meetingReqInfo: MeetingReqTypes.MeetingRequest) {
   try {
@@ -220,6 +220,11 @@ export async function updateMeetingRequest(
         };
       }
 
+      const notification = await MeetingReqRepo.
+        createUpdateNotification(request.recipient_user_id, userId, requestId, requestInfoDB, client);
+      if (!notification || notification.length === 0)
+        throw new ValidationError("Error al crear la notificacion de actualizacion de solicitud"); 
+
       const formatedData = Mapper.meetingRequestToResponse(updatedRequest[0]);
       return {
         result: true,
@@ -233,7 +238,7 @@ export async function updateMeetingRequest(
   } catch (err) {
     if (err instanceof ServerError)
       return { result: false, statusCode: err.statusCode, message: err.message };
-    
+
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}`};
   }
 }

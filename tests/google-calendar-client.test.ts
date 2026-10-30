@@ -323,4 +323,84 @@ describe("Google Calendar client - errores", () => {
 
     expect(fetchMock).toHaveBeenCalledOnce();
   });
+
+    it("incluye eventos de día completo", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+        items: [{
+        id: "all-day-event",
+        summary: "Día ocupado",
+        start: { date: "2026-11-02" },
+        end: { date: "2026-11-03" },
+        status: "confirmed",
+        }],
+    }));
+
+    const events = await listGoogleEvents(userId, from, to);
+
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+        id: "all-day-event",
+        title: "Día ocupado",
+        startsAt: "2026-11-02T04:00:00.000Z",
+        endsAt: "2026-11-03T04:00:00.000Z",
+        timeZone: "America/La_Paz",
+    });
+    });
+
+    it("traduce cuota excedida a 429", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+        error: {
+        errors: [{ reason: "rateLimitExceeded" }],
+        },
+    }, 403));
+
+    await expect(
+        listGoogleEvents(userId, from, to),
+    ).rejects.toMatchObject({
+        code: "google_rate_limited",
+        statusCode: 429,
+    });
+    });
+
+    it("traduce permisos insuficientes a reconexión", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+        error: {
+        errors: [{ reason: "insufficientPermissions" }],
+        },
+    }, 403));
+
+    await expect(
+        listGoogleEvents(userId, from, to),
+    ).rejects.toMatchObject({
+        code: "reconnection_required",
+        statusCode: 409,
+    });
+    });
+
+    it("actualiza las fechas y la zona horaria juntas", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+        ...googleEvent,
+        start: {
+        dateTime: "2026-11-02T09:00:00-05:00",
+        timeZone: "America/Bogota",
+        },
+        end: {
+        dateTime: "2026-11-02T10:00:00-05:00",
+        timeZone: "America/Bogota",
+        },
+    }));
+
+    await updateGoogleEvent(userId, "event-123", {
+        startsAt: "2026-11-02T14:00:00.000Z",
+        endsAt: "2026-11-02T15:00:00.000Z",
+        timeZone: "America/Bogota",
+    });
+
+    const { options } = lastRequest();
+    const body = JSON.parse(String(options.body));
+
+    expect(body.start.timeZone).toBe("America/Bogota");
+    expect(body.end.timeZone).toBe("America/Bogota");
+    });
+
 });

@@ -345,8 +345,6 @@ export async function insertWorkExperiences(userId: string, workExperiences: Pro
 }
 
 export interface PublicGitHubState {
-  repositoriesVisible: boolean;
-  activityVisible: boolean;
   githubConnected: boolean;
   activityList: string | null;
   activityGrid: string | null;
@@ -357,22 +355,6 @@ export async function findPublicGitHubState(
 ): Promise<PublicGitHubState> {
   const query = `
     SELECT
-      EXISTS (
-        SELECT 1
-        FROM public.field_visibility
-        WHERE user_id = $1
-          AND section = 'repositories'
-          AND visible = TRUE
-      ) AS "repositoriesVisible",
-
-      EXISTS (
-        SELECT 1
-        FROM public.field_visibility
-        WHERE user_id = $1
-          AND section = 'github_activity'
-          AND visible = TRUE
-      ) AS "activityVisible",
-
       EXISTS (
         SELECT 1
         FROM public.external_account
@@ -402,3 +384,4 @@ export async function findPublicGitHubState(
 
   return rows[0] as PublicGitHubState;
 }
+

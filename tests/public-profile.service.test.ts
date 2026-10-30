@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as ProfileRepo from "../src/repositories/profile.repository";
 import * as ProfileReadRepo from "../src/repositories/profile-read.repository";
+import * as VisibilityRepo from "../src/repositories/visibility.repository";
 import { getPublicProfile } from "../src/services/profile.service";
 
 function prepareProfile() {
@@ -35,9 +36,12 @@ function prepareProfile() {
     links: []
   } as any);
 
+  vi.spyOn(VisibilityRepo, "findSectionVisibility").mockResolvedValue({
+    repositories: false,
+    githubActivity: false
+  });
+
   vi.spyOn(ProfileRepo, "findPublicGitHubState").mockResolvedValue({
-    repositoriesVisible: false,
-    activityVisible: false,
     githubConnected: true,
     activityList: JSON.stringify([{
       type: "PushEvent",
@@ -93,25 +97,21 @@ describe("T-51 - Consulta del perfil publico", () => {
   it("publica solamente el resumen permitido de actividad", async () => {
     prepareProfile();
 
-    vi.mocked(ProfileRepo.findPublicGitHubState).mockResolvedValue({
-      repositoriesVisible: false,
-      activityVisible: true,
-      githubConnected: true,
-      activityList: JSON.stringify([{
-        type: "PushEvent",
-        repo: { name: "equipo/proyecto" },
-        date: "2026-10-29",
-        payload: { secret: "informacion-privada" }
-      }]),
-      activityGrid: JSON.stringify({
-        totalContributions: 15
-      })
+    vi.mocked(VisibilityRepo.findSectionVisibility).mockResolvedValue({
+      repositories: false,
+      githubActivity: true
     });
 
     const profile = await getPublicProfile("usuario-demo");
 
     expect(profile?.githubActivityList).toHaveLength(1);
     expect(profile?.githubActivityGrid).toHaveLength(1);
-    expect(JSON.stringify(profile)).not.toContain("informacion-privada");
+
+    const response = JSON.stringify(profile);
+
+    expect(response).toContain("PushEvent");
+    expect(response).toContain("totalContributions");
+    expect(response).not.toContain("informacion-privada");
+    expect(response).not.toContain("token-privado");
   });
 });

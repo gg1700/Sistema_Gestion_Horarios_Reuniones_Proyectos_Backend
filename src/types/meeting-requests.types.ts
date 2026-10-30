@@ -59,6 +59,9 @@ export interface MeetingRequestResponse {
 
 export interface ListedRequestsResponse {
   id: string;
+  handleName: string;
+  name: string;
+  firstSurname: string;
   title: string;
   message?: string | null;
   startsAt: Date;
@@ -66,12 +69,15 @@ export interface ListedRequestsResponse {
   timeZone: string;
   status: MeetingRequestStatus;
   createdAt: Date;
-  resolvedAt: Date;
+  resolvedAt: Date | null;
   ownerResponseMessage?: string | null
 }
 
 export interface ListedRequestsRows {
   id: string;
+  recipient_handle: string;
+  name: string;
+  first_surname: string;
   title: string;
   message?: string | null;
   requested_start_at: Date;
@@ -79,6 +85,6 @@ export interface ListedRequestsRows {
   timezone: string;
   status: MeetingRequestStatus;
   created_at: Date;
-  resolved_at: Date;
+  resolved_at: Date | null;
   owner_response_message?: string | null
 }

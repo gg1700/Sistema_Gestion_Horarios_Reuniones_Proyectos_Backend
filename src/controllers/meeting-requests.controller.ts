@@ -45,14 +45,14 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
     let parsedPage = undefined;
     if (page) {
       parsedPage = Number(page);
-      if (isNaN(parsedPage) || parsedPage <= 0) {
+      if (!Number.isSafeInteger(parsedPage) || parsedPage <= 0) {
         return res.status(400).json({ success: false, message: "Valor de paginacion invalido" });
       }
     }
     let parsedLimit = undefined;
     if (limit) {
       parsedLimit = Number(limit);
-      if (isNaN(parsedLimit) || parsedLimit <= 0) {
+      if (!Number.isSafeInteger(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100) {
         return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });   
       }
     }

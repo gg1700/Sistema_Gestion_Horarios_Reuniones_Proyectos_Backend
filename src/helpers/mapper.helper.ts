@@ -197,6 +197,9 @@ export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequest
 export function listedSentRequestToResponse(request: MeetingReqTypes.ListedRequestsRows) {
   return {
     id: request.id,
+    handleName: request.recipient_handle,
+    name: request.name,
+    firstSurname: request.first_surname,
     title: request.title,
     message: request.message,
     startsAt: request.requested_start_at,

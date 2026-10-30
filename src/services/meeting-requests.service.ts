@@ -1,0 +1,94 @@
+import { processTransaction } from "../utils/query";
+import { PoolClient } from "pg";
+import * as MeetingReqTypes from "../types/meeting-requests.types";
+import * as ProfileRepo from "../repositories/profile.repository";
+import * as MeetingReqRepo from "../repositories/meeting-requests.repository";
+import * as Mapper from "../helpers/mapper.helper";
+import { ValidationError } from "../helpers/errors.helper";
+import * as DateUtils from "../utils/date";
+
+export async function createMeetingRequest(userId: string, meetingReqInfo: MeetingReqTypes.MeetingRequest) {
+  try {
+    const userFound = await ProfileRepo.existsUser(userId);
+    if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
+
+    const formatedInfo = Mapper.meetingReqInfoToDB(meetingReqInfo);
+
+    const recipientHandle = formatedInfo.recipient_handle;
+    const recipientUserFound = await MeetingReqRepo.findRecipientUserByHandle(recipientHandle);
+    if (!recipientUserFound || recipientUserFound.length === 0)
+      return { result: false, statusCode: 404, message: "El usuario solicitado no existe" };
+
+    const recipientUserId = recipientUserFound[0].id;
+    if (recipientUserId === userId)
+      return { result: false, statusCode: 400, message: "El usuario solicitado es el usuario solicitante" };
+
+    const publicCalendarFound = await MeetingReqRepo.hasPublicCalendarActive(recipientUserId);
+    if (!publicCalendarFound)
+      return { result: false, statusCode: 400, message: "El usuario solicitado no tiene un calendario publico disponible" };
+
+    if (formatedInfo.start_at.getTime() <= Date.now())
+      throw new ValidationError("La fecha de inicio debe ser futura");
+    if (formatedInfo.end_at <= formatedInfo.start_at)
+      throw new ValidationError("La fecha de finalización debe ser posterior al inicio");
+
+    const recipientTimezone = await MeetingReqRepo.findRecipientTimezone(recipientUserId);
+    const timezone = (!recipientTimezone || recipientTimezone.length === 0) ? "UTC" : recipientTimezone[0].timezone;
+    const startTime = formatedInfo.start_at;
+    const endTime = formatedInfo.end_at;
+    const startDay = DateUtils.getLocalWeekDay(startTime, timezone);
+    const endDay = DateUtils.getLocalWeekDay(endTime, timezone)
+    const startHour = DateUtils.getLocalTime(startTime, timezone);
+    const endHour = DateUtils.getLocalTime(endTime, timezone);
+    if (startDay !== endDay)
+      return { result: false, statusCode: 400, message: "No es posible solicitar una reunion que dure mas de un dia" };
+
+    const ans = await processTransaction<unknown>(async function (client: PoolClient) {
+      const availableSchedules = await MeetingReqRepo.
+        findAvailableSchedules(recipientUserId, startDay, startHour, endHour, client);
+      if (!availableSchedules || availableSchedules.length === 0) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "Horario de solicitud no coincide con ningun horario disponible del usuario solicitado"
+        };
+      }
+      const scheduledActivities = await MeetingReqRepo.findCalendarSchedules(recipientUserId, startTime, endTime, client);
+      if (scheduledActivities.length > 0) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "Horario de solicitud invalido, ocupado por otra actividad ya programada por el usuario solicitado"
+        };
+      }
+      const pendingRequests = await MeetingReqRepo.findPendingRequests(recipientUserId, startTime, endTime, client);
+      if (pendingRequests.length > 0) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "Solicitud rechazada, ya hay solicitudes pendientes que solicitan ese horario"
+        };
+      }
+
+      const newMeetingRequest = await MeetingReqRepo.createMeetingRequest(userId, recipientUserId, formatedInfo, client);
+      if (!newMeetingRequest || newMeetingRequest.length === 0)
+        throw new ValidationError("Error al registrar solicitud de reunion");
+
+      const requestId = newMeetingRequest[0].id;
+      const notification = await MeetingReqRepo.createNotification(recipientUserId, userId, requestId, formatedInfo, client);
+      if (!notification || notification.length === 0)
+        throw new ValidationError("Error al crear notificacion de solicitud de reunion");
+
+      return {
+        result: true,
+        statusCode: 201,
+        message: "Solicitud de reunion registrada correctamente",
+        data: newMeetingRequest[0]
+      };
+    });
+
+    return ans;
+  } catch (err) {
+    return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
+  }
+}

@@ -1,6 +1,7 @@
 import * as ProfileTypes from "../types/profile.types";
 import * as WorkExpTypes from "../types/work_experience.types";
 import * as AuthTypes from "../types/auth.types";
+import * as MeetingReqTypes from "../types/meeting-requests.types";
 
 function surnameToDB(surname: ProfileTypes.Surname) {
   const result = {
@@ -66,7 +67,7 @@ export function editablePersonalInfoToDB(payload: ProfileTypes.EditablePersonalI
   if (payload.contactEmails !== undefined) result.contact_emails = payload.contactEmails.map(email => contactEmailToDB(email));
   if (payload.addresses !== undefined) result.addresses = payload.addresses.map(address => addressToDB(address));
   if (payload.links !== undefined) result.links = payload.links.map(link => linkToDB(link));
-  if (payload.countries !== undefined) result.countries = payload.countries.map(country => countryToDB(country)); 
+  if (payload.countries !== undefined) result.countries = payload.countries.map(country => countryToDB(country));
   return result;
 }
 
@@ -166,5 +167,17 @@ export function additionalInfoToDB(payload: ProfileTypes.AdditionalInfo) {
   if (payload.links) result.links = payload.links.map(link => newLinkToDB(link));
   if (payload.countries) result.countries = payload.countries.map(country => newCountryToDB(country));
   if (payload.workExperiences) result.work_experiences = payload.workExperiences.map(workExperience => newWorkExperienceToDB(workExperience));
+  return result;
+}
+
+export function meetingReqInfoToDB(payload: MeetingReqTypes.MeetingRequest) {
+  const result: MeetingReqTypes.MeetingRequestDB = {
+    recipient_handle: payload.recipientHandle,
+    title: payload.title,
+    start_at: payload.startsAt,
+    end_at: payload.endsAt,
+    timezone: payload.timeZone
+  }
+  if (payload.message !== undefined) result.message = payload.message;
   return result;
 }

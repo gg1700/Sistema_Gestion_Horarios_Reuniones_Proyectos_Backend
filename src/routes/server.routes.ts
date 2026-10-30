@@ -6,6 +6,7 @@ import { publicProfileRateLimit } from "../middlewares/publicProfileRateLimit.mi
 import AuthRoutes from "./auth.routes";
 import GoogleCalendarRoutes from "./google-calendar.routes";
 import GithubRoutes from "./github.routes";
+import MeetingReqRoutes from "./meeting-requests.routes";
 
 const router = Router();
 
@@ -26,6 +27,7 @@ router.get(
   ProfileController.getPublicProfile
 );
 router.use("/api/v1/integrations/github", GithubRoutes);
+router.use("/api/v1/meeting-requests", MeetingReqRoutes)
 
 router.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Ruta no encontrada..." });

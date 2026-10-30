@@ -3,6 +3,7 @@ import * as ProfileValidations from "../validators/profile.validator";
 import * as WorkExperienceValidations from "../validators/work_experience.validator";
 import * as AuthValidations from "../validators/auth.validator";
 import { ServerError } from "../helpers/errors.helper";
+import * as MeetingReqValidations from "../validators/meeting-requests.validator";
 
 export function modifyPersonalInfo(req: Request, res: Response, next: NextFunction) {
   req.body = ProfileValidations.validateEditablePersonalInfo(req.body);
@@ -32,3 +33,16 @@ function validateRequestBody(validator: (payload: unknown) => unknown) {
 export const registerUser = validateRequestBody(AuthValidations.validateRegisterUser);
 
 export const createAdditionalInfo = validateRequestBody(ProfileValidations.validateAdditionalInfo);
+
+export function createMeetingRequest(req: Request, res: Response, next: NextFunction) {
+  try {
+    req.body = MeetingReqValidations.validateMeetingReqInfo(req.body);
+    next();
+  } catch (err) {
+    const statusCode = (err instanceof ServerError) ? err.statusCode : 400;
+    return res.status(statusCode).json({
+      success: false,
+      message: (err as Error).message
+    });
+  }
+}

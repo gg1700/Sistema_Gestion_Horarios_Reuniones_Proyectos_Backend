@@ -10,6 +10,7 @@ import type {
   GeneralVisibilityType,
   RecordVisibilityType,
   VisibilityChange,
+  VisibilityRecord,
   VisibilitySection,
   VisibilityType,
 } from "../types/visibility.types";
@@ -59,10 +60,10 @@ export class VisibilityError extends Error {
 
 export async function getVisibility(
   userId: string,
-): Promise<VisibilityChange[]> {
+): Promise<VisibilityRecord[]> {
   const general = await findSectionVisibility(userId);
 
-  const visibility: VisibilityChange[] = [
+  const visibility: VisibilityRecord[] = [
     {
       type: "repositories",
       visible: general.repositories,
@@ -76,9 +77,10 @@ export async function getVisibility(
   for (const type of recordVisibilityTypes) {
     const table = tables[type];
     const idColumn = userScopedTypes.has(type) ? "user_id" : "id";
+    const nameColumn = type === "repository" ? ", name" : "";
 
     const rows = await processReturnQuery(
-      `SELECT ${idColumn} AS id, visible
+      `SELECT ${idColumn} AS id, visible${nameColumn}
        FROM public.${table}
        WHERE user_id = $1`,
       [userId],
@@ -89,6 +91,7 @@ export async function getVisibility(
         type,
         id: row.id,
         visible: row.visible,
+        ...(type === "repository" ? { name: row.name } : {}),
       });
     }
   }

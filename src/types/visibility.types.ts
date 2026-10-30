@@ -42,6 +42,10 @@ export interface VisibilityChange {
   visible: boolean;
 }
 
+export interface VisibilityRecord extends VisibilityChange {
+  name?: string;
+}
+
 export interface VisibilityRequest {
   changes: VisibilityChange[];
 }

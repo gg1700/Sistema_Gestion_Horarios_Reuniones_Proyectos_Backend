@@ -19,29 +19,30 @@ export async function deleteExternalAccount(id: string, userId: string) {
   return deletedAccount;
 }
 
-export async function existsEmail(email: string) {
-  const query = `
-    SELECT id FROM "user"
-    WHERE email = $1 AND deleted_at IS NULL`;
-  const values = [email];
-  const userFound = await processReturnQuery(query, values);
-  return (userFound.length !== 0);
+export async function findRegistrationUser(userId: string) {
+  const query = `SELECT id, handle_name, name, first_surname, email, registration_completed
+    FROM "user"
+    WHERE id = $1 AND deleted_at IS NULL`;
+  const values = [userId];
+  const usersFound = await processReturnQuery(query, values);
+  return usersFound[0] as AuthTypes.UserDB | undefined;
 }
 
-export async function existsHandleName(handleName: string) {
+export async function existsHandleNameForOtherUser(handleName: string, userId: string) {
   const query = `
     SELECT id FROM "user"
-    WHERE LOWER(handle_name) = LOWER($1) AND deleted_at IS NULL`;
-  const values = [handleName];
-  const userFound = await processReturnQuery(query, values);
-  return (userFound.length !== 0);
+    WHERE LOWER(handle_name) = LOWER($1) AND id <> $2`;
+  const values = [handleName, userId];
+  const usersFound = await processReturnQuery(query, values);
+  return (usersFound.length !== 0);
 }
 
-export async function insertUser(user: AuthTypes.RegisterUserDB) {
-  const query = `INSERT INTO "user" (handle_name, name, first_surname, email, password_hash)
-    VALUES ($1, $2, $3, $4, $5)
-    RETURNING id, handle_name, name, first_surname, email`;
-  const values = [user.handle_name, user.name, user.first_surname, user.email, user.password_hash];
-  const insertedUsers = await processReturnQuery(query, values);
-  return insertedUsers[0] as AuthTypes.UserDB;
+export async function completeRegistration(userId: string, user: AuthTypes.RegisterUserDB) {
+  const query = `UPDATE "user"
+    SET handle_name = $2, name = $3, first_surname = $4, registration_completed = true, updated_at = now()
+    WHERE id = $1 AND registration_completed = false AND deleted_at IS NULL
+    RETURNING id, handle_name, name, first_surname, email, registration_completed`;
+  const values = [userId, user.handle_name, user.name, user.first_surname];
+  const updatedUsers = await processReturnQuery(query, values);
+  return updatedUsers[0] as AuthTypes.UserDB | undefined;
 }

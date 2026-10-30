@@ -120,6 +120,7 @@ function validateNewPhone(value: unknown): ProfileTypes.NewPhone {
   if (!RegexConstants.regexCountryCode.test(formatedCountryCode)) {
     throw new ValidationError("Codigo de pais invalido");
   }
+  GeneralValidations.validatePhoneDigits(formatedPhoneNumber, formatedCountryCode, "Telefono");
   return {
     phoneNumber: formatedPhoneNumber,
     countryCode: formatedCountryCode,
@@ -224,8 +225,14 @@ export function validateAdditionalInfo(payload: unknown) {
 
   const proccessedInfo: ProfileTypes.AdditionalInfo = {};
   if (!GeneralValidations.isEmptyValue(surname)) proccessedInfo.surname = validateNewSurname(surname);
-  if (!GeneralValidations.isEmptyValue(phones)) proccessedInfo.phones = GeneralValidations.validateList(phones, validateNewPhone, "Telefonos");
-  if (!GeneralValidations.isEmptyValue(contactEmails)) proccessedInfo.contactEmails = GeneralValidations.validateList(contactEmails, validateNewContactEmail, "Correos de Contacto");
+  if (!GeneralValidations.isEmptyValue(phones)) {
+    const validatedPhones: ProfileTypes.NewPhone[] = GeneralValidations.validateList(phones, validateNewPhone, "Telefonos");
+    proccessedInfo.phones = validateMaximumItems(validatedPhones, ProfileConstants.maximumPhones, "Telefonos");
+  }
+  if (!GeneralValidations.isEmptyValue(contactEmails)) {
+    const validatedContactEmails: ProfileTypes.NewContactEmail[] = GeneralValidations.validateList(contactEmails, validateNewContactEmail, "Correos de Contacto");
+    proccessedInfo.contactEmails = validateMaximumItems(validatedContactEmails, ProfileConstants.maximumContactEmails, "Correos de Contacto");
+  }
   if (!GeneralValidations.isEmptyValue(addresses)) proccessedInfo.addresses = GeneralValidations.validateList(addresses, validateNewAddress, "Direcciones");
   if (!GeneralValidations.isEmptyValue(links)) {
     const validatedLinks: ProfileTypes.NewLink[] = GeneralValidations.validateList(links, validateNewLink, "Enlaces");

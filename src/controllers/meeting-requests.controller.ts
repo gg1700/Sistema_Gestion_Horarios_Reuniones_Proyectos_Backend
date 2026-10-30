@@ -39,16 +39,26 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
     const { status, page, limit } = req.query;
 
     if (status && (typeof status !== "string" ||
-      Object.values(MeetingReqTypes.MeetingRequestStatus).includes(status as MeetingReqTypes.MeetingRequestStatus))) {
+      !Object.values(MeetingReqTypes.MeetingRequestStatus).includes(status as MeetingReqTypes.MeetingRequestStatus))) {
       return res.status(400).json({ success: false, message: "Valor de estado invalido" });
     }
-    if (page || typeof page !== "number")
-      return res.status(400).json({ success: false, message: "Valor de paginacion invalido" });
-    if (limit || typeof limit !== "number")
-      return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });
+    let parsedPage = undefined;
+    if (page) {
+      parsedPage = Number(page);
+      if (isNaN(parsedPage) || parsedPage <= 0) {
+        return res.status(400).json({ success: false, message: "Valor de paginacion invalido" });
+      }
+    }
+    let parsedLimit = undefined;
+    if (limit) {
+      parsedLimit = Number(limit);
+      if (isNaN(parsedLimit) || parsedLimit <= 0) {
+        return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });   
+      }
+    }
     
     const { result, statusCode, message, data } = await MeetingReqService.
-      listSentMeetingRequests(validatedUserId, status, page, limit);
+      listSentMeetingRequests(validatedUserId, status, parsedPage, parsedLimit);
     if (!result) return res.status(statusCode).json({ success: false, message: message });
     
     return res.status(200).json({ success: true, message: message, data: data });

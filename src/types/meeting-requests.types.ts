@@ -56,3 +56,29 @@ export interface MeetingRequestResponse {
   status: MeetingRequestStatus;
   createdAt: Date;
 }
+
+export interface ListedRequestsResponse {
+  id: string;
+  title: string;
+  message?: string | null;
+  startsAt: Date;
+  endsAt: Date;
+  timeZone: string;
+  status: MeetingRequestStatus;
+  createdAt: Date;
+  resolvedAt: Date;
+  ownerResponseMessage?: string | null
+}
+
+export interface ListedRequestsRows {
+  id: string;
+  title: string;
+  message?: string | null;
+  requested_start_at: Date;
+  requested_end_at: Date;
+  timezone: string;
+  status: MeetingRequestStatus;
+  created_at: Date;
+  resolved_at: Date;
+  owner_response_message?: string | null
+}

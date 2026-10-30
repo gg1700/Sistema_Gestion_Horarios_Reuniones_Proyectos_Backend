@@ -120,13 +120,14 @@ export async function listSentMeetingRequests(
     const sentRequests = await MeetingReqRepo.listRequests(userId, status, page, limit);
     if (!sentRequests) return { result: false, statusCode: 400, message: "Error al obtener solicitudes enviadas" };
     if (sentRequests.length === 0)
-      return { result: true, statusCode: 200, message: "El usuario no ha tiene solicitudes enviadas", data: [] };
+      return { result: true, statusCode: 200, message: "El usuario no tiene solicitudes enviadas", data: [] };
     
+    const formatedData = sentRequests.map(sr => Mapper.listedSentRequestToResponse(sr));
     return {
       result: true,
       statusCode: 200,
       message: "Lista de solicitudes enviadas por el usuario obtenida correctamente",
-      data: sentRequests
+      data: formatedData
     };
   } catch (err) {
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };

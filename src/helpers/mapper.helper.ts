@@ -193,3 +193,18 @@ export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequest
     createdAt: request.created_at
   };
 }
+
+export function listedSentRequestToResponse(request: MeetingReqTypes.ListedRequestsRows) {
+  return {
+    id: request.id,
+    title: request.title,
+    message: request.message,
+    startsAt: request.requested_start_at,
+    endsAt: request.requested_end_at,
+    timeZone: request.timezone,
+    status: request.status,
+    createdAt: request.created_at,
+    resolvedAt: request.resolved_at,
+    ownerResponseMessage: request.owner_response_message
+  }
+}

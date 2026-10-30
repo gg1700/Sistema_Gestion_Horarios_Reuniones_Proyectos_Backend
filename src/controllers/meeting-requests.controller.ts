@@ -36,8 +36,15 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
   try {
     const { userId } = req.user as TokenTypes.TokenPayload;
     const validatedUserId = GeneralValidations.validateId(userId);
+    const { action: actionType } = req.params;
     const { status, page, limit } = req.query;
 
+    if (actionType !== "sent" && actionType !== "received") {
+      return res.status(400).json({
+        success: false,
+        message: "Parametro de accion para listar solicitudes de reunion invalido",
+      });
+    }
     if ((status !== undefined) && (typeof status !== "string" ||
       !Object.values(MeetingReqTypes.MeetingRequestStatus).includes(status as MeetingReqTypes.MeetingRequestStatus))) {
       return res.status(400).json({ success: false, message: "Valor de estado invalido" });
@@ -60,7 +67,7 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
     }
     
     const { result, statusCode, message, data } = await MeetingReqService.
-      listSentMeetingRequests(validatedUserId, status, parsedPage, parsedLimit);
+      listSentMeetingRequests(validatedUserId, actionType, status, parsedPage, parsedLimit);
     if (!result) return res.status(statusCode).json({ success: false, message: message });
     
     return res.status(200).json({ success: true, message: message, data: data });

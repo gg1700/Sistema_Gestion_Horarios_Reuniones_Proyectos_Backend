@@ -122,7 +122,13 @@ export async function lockRecipientUser(
   return result.rows.length !== 0;
 }
 
-export async function listRequests(userId: string, status?: string, page?: number, limit?: number) {
+export async function listRequests(
+  userId: string,
+  actionType: "sent" | "received",
+  status?: string,
+  page?: number,
+  limit?: number) {
+  const userConstraint = (actionType === "sent") ? `requester_user_id` : `recipient_user_id`;
   const limitValue = (limit !== undefined) ? limit : 20;
   const offsetValue = (page !== undefined) ? ((page - 1) * limitValue) : 0;
   const values = [userId, limitValue, offsetValue];
@@ -138,7 +144,7 @@ export async function listRequests(userId: string, status?: string, page?: numbe
     recipient.first_surname AS recipient_surname
     FROM "meeting_request" mr
     JOIN "user" recipient ON recipient.id = mr.recipient_user_id
-    WHERE mr.requester_user_id = $1 ${filter}
+    WHERE mr.${userConstraint} = $1 ${filter}
     ORDER BY mr.created_at DESC, mr.id DESC
     LIMIT $2 OFFSET $3`;
   const sentRequests = await processReturnQuery(query, values);

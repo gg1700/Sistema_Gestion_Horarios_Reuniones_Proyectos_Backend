@@ -110,6 +110,7 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
 
 export async function listSentMeetingRequests(
   userId: string,
+  type: "sent" | "received",
   status?: string,
   page?: number,
   limit?: number) {
@@ -117,7 +118,7 @@ export async function listSentMeetingRequests(
     const userFound = await ProfileRepo.existsUser(userId);
     if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
 
-    const sentRequests = await MeetingReqRepo.listRequests(userId, status, page, limit);
+    const sentRequests = await MeetingReqRepo.listRequests(userId, type, status, page, limit);
     if (!sentRequests) return { result: false, statusCode: 400, message: "Error al obtener solicitudes enviadas" };
     if (sentRequests.length === 0)
       return { result: true, statusCode: 200, message: "El usuario no tiene solicitudes enviadas", data: [] };

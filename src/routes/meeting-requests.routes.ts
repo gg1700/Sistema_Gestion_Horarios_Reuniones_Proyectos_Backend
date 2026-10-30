@@ -16,7 +16,7 @@ router.post(
 );
 
 router.get(
-  "/sent",
+  "/:action",
   Session.verifySession,
   Session.requireActiveProfileUser,
   MeetingReqController.listSentMeetingRequests

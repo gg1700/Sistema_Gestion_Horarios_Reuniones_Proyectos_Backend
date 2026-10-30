@@ -118,16 +118,18 @@ export async function listSentMeetingRequests(
     const userFound = await ProfileRepo.existsUser(userId);
     if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
 
+    const action = (type == "sent") ? "enviadas" : "recibidas";
+
     const sentRequests = await MeetingReqRepo.listRequests(userId, type, status, page, limit);
-    if (!sentRequests) return { result: false, statusCode: 400, message: "Error al obtener solicitudes enviadas" };
+    if (!sentRequests) return { result: false, statusCode: 400, message: `Error al obtener solicitudes ${action}` };
     if (sentRequests.length === 0)
-      return { result: true, statusCode: 200, message: "El usuario no tiene solicitudes enviadas", data: [] };
+      return { result: true, statusCode: 200, message: `El usuario no tiene solicitudes ${action}`, data: [] };
     
     const formatedData = sentRequests.map(sr => Mapper.listedSentRequestToResponse(sr));
     return {
       result: true,
       statusCode: 200,
-      message: "Lista de solicitudes enviadas por el usuario obtenida correctamente",
+      message: `Lista de solicitudes ${action} por el usuario obtenidas correctamente`,
       data: formatedData
     };
   } catch (err) {

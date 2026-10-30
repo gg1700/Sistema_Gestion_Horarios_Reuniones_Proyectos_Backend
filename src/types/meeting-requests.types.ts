@@ -76,8 +76,8 @@ export interface ListedRequestsResponse {
 export interface ListedRequestsRows {
   id: string;
   recipient_handle: string;
-  name: string;
-  first_surname: string;
+  recipient_name: string;
+  recipient_first_surname: string;
   title: string;
   message?: string | null;
   requested_start_at: Date;

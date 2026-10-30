@@ -44,17 +44,19 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
     }
     let parsedPage = undefined;
     if (page) {
-      parsedPage = Number(page);
-      if (!Number.isSafeInteger(parsedPage) || parsedPage <= 0) {
+      if (page !== undefined && typeof page !== "string")
         return res.status(400).json({ success: false, message: "Valor de paginacion invalido" });
-      }
+      parsedPage = Number(page);
+      if (!Number.isSafeInteger(parsedPage) || parsedPage <= 0)
+        return res.status(400).json({ success: false, message: "Valor de paginacion invalido" });
     }
     let parsedLimit = undefined;
     if (limit) {
+      if (limit !== undefined && typeof limit !== "string")
+        return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });
       parsedLimit = Number(limit);
-      if (!Number.isSafeInteger(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100) {
+      if (!Number.isSafeInteger(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100)
         return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });   
-      }
     }
     
     const { result, statusCode, message, data } = await MeetingReqService.

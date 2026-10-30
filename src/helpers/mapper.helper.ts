@@ -198,8 +198,8 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
   return {
     id: request.id,
     handleName: request.recipient_handle,
-    name: request.name,
-    firstSurname: request.first_surname,
+    name: request.recipient_name,
+    firstSurname: request.recipient_first_surname,
     title: request.title,
     message: request.message,
     startsAt: request.requested_start_at,

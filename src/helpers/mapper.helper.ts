@@ -199,7 +199,7 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     id: request.id,
     handleName: request.recipient_handle,
     name: request.recipient_name,
-    firstSurname: request.recipient_first_surname,
+    firstSurname: request.recipient_surname,
     title: request.title,
     message: request.message,
     startsAt: request.requested_start_at,

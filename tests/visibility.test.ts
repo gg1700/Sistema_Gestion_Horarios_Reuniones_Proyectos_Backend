@@ -201,6 +201,7 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
           type: "repository",
           id: repositoryId,
           visible: false,
+          name: "repositorio-prueba",
         },
         {
           type: "githubActivityList",
@@ -244,6 +245,7 @@ describe("GET y PATCH /api/v1/profile/visibility", () => {
           type: "repository",
           id: repositoryId,
           visible: true,
+          name: "repositorio-prueba",
         },
         {
           type: "githubActivityList",

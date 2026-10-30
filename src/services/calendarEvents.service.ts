@@ -127,7 +127,15 @@ function mirrorData(
     providerUpdatedAt: event.providerUpdatedAt,
   };
 }
-
+async function retryLocalOperation<T>(
+  operation: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await operation();
+  } catch {
+    return operation();
+  }
+}
 export async function listCalendarEvents(
   userId: string,
   query: CalendarEventRangeQuery,
@@ -187,28 +195,22 @@ export async function createCalendarEvent(
   }
 }
 
+
 export async function updateCalendarEvent(
   userId: string,
   eventId: string,
   input: UpdateCalendarEventInput,
 ): Promise<CalendarEventResponse> {
   const calendar = await getConnectedCalendar(userId);
-  const current = await getOwnedEvent(
-    userId,
-    eventId,
-    calendar.connectionId,
-  );
+  const current = await getOwnedEvent(userId, eventId, calendar.connectionId);
 
   const startsAt = input.startsAt ?? current.startsAt;
   const endsAt = input.endsAt ?? current.endsAt;
-
   ensureValidRange(startsAt, endsAt);
-
-  const googleChanges = hasGoogleChanges(input);
 
   let updated: GoogleCalendarEvent;
 
-  if (googleChanges) {
+  if (hasGoogleChanges(input)) {
     const updateInput: UpdateCalendarEventInput = { ...input };
 
     if (
@@ -240,12 +242,14 @@ export async function updateCalendarEvent(
     };
   }
 
-  const mirror = await upsertCalendarEventMirror(
-    mirrorData(
-      userId,
-      calendar.connectionId,
-      updated,
-      input.isPublic ?? current.isPublic,
+  const mirror = await retryLocalOperation(() =>
+    upsertCalendarEventMirror(
+      mirrorData(
+        userId,
+        calendar.connectionId,
+        updated,
+        input.isPublic ?? current.isPublic,
+      ),
     ),
   );
 
@@ -265,11 +269,13 @@ export async function deleteCalendarEvent(
 
   await deleteGoogleEvent(userId, current.googleEventId);
 
-  const deleted = await deleteCalendarEventMirror(userId, eventId);
+  const deleted = await retryLocalOperation(() =>
+    deleteCalendarEventMirror(userId, eventId),
+  );
 
   if (!deleted) {
     throw new ConflictError(
-      "El evento cambió durante la eliminación",
+      "El espejo local del evento ya no existe",
     );
   }
 }

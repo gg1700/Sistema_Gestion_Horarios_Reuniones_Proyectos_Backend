@@ -305,6 +305,44 @@ describe("Calendar events - POST", () => {
 });
 
 describe("Calendar events - PATCH", () => {
+  it("envía las fechas existentes cuando cambia solo la zona horaria", async () => {
+    mocks.updateGoogleEvent.mockResolvedValue({
+      ...googleEvent,
+      timeZone: "America/Bogota",
+    });
+
+    await request(app)
+      .patch(`${path}/${eventId}`)
+      .set("Authorization", authorization)
+      .send({ timeZone: "America/Bogota" })
+      .expect(200);
+
+    expect(mocks.updateGoogleEvent).toHaveBeenCalledWith(
+      userId,
+      googleEvent.id,
+      expect.objectContaining({
+        startsAt: mirror.startsAt,
+        endsAt: mirror.endsAt,
+        timeZone: "America/Bogota",
+      }),
+    );
+  });
+
+  it("reintenta el guardado local sin repetir el PATCH de Google", async () => {
+    mocks.upsertCalendarEventMirror
+      .mockRejectedValueOnce(new Error("Fallo temporal de PostgreSQL"))
+      .mockResolvedValueOnce(mirror);
+
+    await request(app)
+      .patch(`${path}/${eventId}`)
+      .set("Authorization", authorization)
+      .send({ title: "Evento actualizado" })
+      .expect(200);
+
+    expect(mocks.updateGoogleEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.upsertCalendarEventMirror).toHaveBeenCalledTimes(2);
+  });
+
   it("actualiza Google y el espejo local", async () => {
     const response = await request(app)
       .patch(`${path}/${eventId}`)
@@ -363,6 +401,34 @@ describe("Calendar events - PATCH", () => {
 });
 
 describe("Calendar events - DELETE", () => {
+  it("reintenta eliminar el espejo sin repetir el DELETE de Google", async () => {
+    mocks.deleteCalendarEventMirror
+      .mockRejectedValueOnce(new Error("Fallo temporal de PostgreSQL"))
+      .mockResolvedValueOnce(true);
+
+    await request(app)
+      .delete(`${path}/${eventId}`)
+      .set("Authorization", authorization)
+      .expect(204);
+
+    expect(mocks.deleteGoogleEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteCalendarEventMirror).toHaveBeenCalledTimes(2);
+  });
+
+  it("no confirma el DELETE si PostgreSQL falla permanentemente", async () => {
+    mocks.deleteCalendarEventMirror.mockRejectedValue(
+      new Error("PostgreSQL no disponible"),
+    );
+
+    await request(app)
+      .delete(`${path}/${eventId}`)
+      .set("Authorization", authorization)
+      .expect(500);
+
+    expect(mocks.deleteGoogleEvent).toHaveBeenCalledTimes(1);
+    expect(mocks.deleteCalendarEventMirror).toHaveBeenCalledTimes(2);
+  });
+
   it("elimina primero en Google y luego en PostgreSQL", async () => {
     const order: string[] = [];
 

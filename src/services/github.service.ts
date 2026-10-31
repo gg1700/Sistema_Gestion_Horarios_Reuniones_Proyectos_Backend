@@ -42,18 +42,23 @@ export async function requestGithubActivity(userId: string, type: "list" | "grid
       }
 
       const cachedActivity = await GithubRepo.getGithubActivity(userId, type);
-      if (cachedActivity && cachedActivity[0].activity)
+      if (cachedActivity && cachedActivity[0].activity) {
+        const cachedData = JSON.parse(cachedActivity[0].activity);
+        const limitedData = type === "list" && Array.isArray(cachedData)
+          ? cachedData.slice(0, GithubAPIService.GITHUB_ACTIVITY_LIST_LIMIT)
+          : cachedData;
         return {
           result: true,
           statusCode: 200,
           message: "GitHub no esta disponible, ultima actividad guardada devuelta",
-          data: JSON.parse(cachedActivity[0].activity)
+          data: limitedData
         };
+      }
 
       return { result: result, statusCode: statusCode, message: message };
     }
 
-    await GithubRepo.upsertGithubActivity(userId, type, JSON.stringify(data)); 
+    await GithubRepo.upsertGithubActivity(userId, type, JSON.stringify(data));
     if (type === "list" && Array.isArray(data) && data.length === 0)
       return { result: true, statusCode: 200, message: "El usuario no tiene actividad reciente en GitHub", data: [] };
 

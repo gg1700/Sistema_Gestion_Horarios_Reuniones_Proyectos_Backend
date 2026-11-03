@@ -176,6 +176,11 @@ export async function disconnectGoogleCalendar(
        WHERE external_account_id = $1`,
       [account.id]
     );
+    await client.query(
+      `DELETE FROM public.calendar_calendar_choice
+       WHERE user_id = $1`,
+      [userId]
+    );
 
     if (hasCalendarScopes) {
       await client.query(

@@ -151,3 +151,56 @@ export async function revokeGoogleToken(token: string): Promise<void> {
 
   throw new GoogleCalendarRevocationError("revocation_failed");
 }
+
+interface CreatedGoogleCalendar {
+  id: string;
+  summary: string;
+  timeZone?: string;
+}
+
+export async function createGoogleCalendar(
+  accessToken: string,
+  name: string,
+  timeZone: string
+): Promise<CreatedGoogleCalendar> {
+  let response: Response;
+
+  try {
+    response = await fetch(
+      "https://www.googleapis.com/calendar/v3/calendars",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        },
+        body: JSON.stringify({ summary: name, timeZone }),
+        signal: AbortSignal.timeout(TIMEOUT_MS),
+        redirect: "error"
+      }
+    );
+  } catch {
+    throw new GoogleCalendarProviderError("google_calendar_unavailable");
+  }
+
+  if (response.status === 401) {
+    throw new GoogleCalendarProviderError("google_unauthorized");
+  }
+
+  if (!response.ok) {
+    throw new GoogleCalendarProviderError("google_calendar_unavailable");
+  }
+
+  try {
+    const data = await response.json() as CreatedGoogleCalendar;
+
+    if (!data?.id || !data.summary) {
+      throw new Error("Respuesta inválida de Google");
+    }
+
+    return data;
+  } catch {
+    throw new GoogleCalendarProviderError("google_calendar_unavailable");
+  }
+}

@@ -4,7 +4,8 @@ import {
   selectGoogleCalendar,
   getGoogleCalendarStatus,
   unlinkGoogleCalendar,
-  GoogleCalendarError
+  GoogleCalendarError,
+  createAndSelectGoogleCalendar
 } from "../services/google-calendar.service";
 
 function handleError(res: Response, error: unknown): void {
@@ -89,6 +90,29 @@ export async function disconnectCalendar(req: Request, res: Response): Promise<v
     const data = await unlinkGoogleCalendar(userId);
 
     res.status(200).json({ success: true, data });
+  } catch (error) {
+    handleError(res, error);
+  }
+}
+export async function createCalendar(
+  req: Request,
+  res: Response
+): Promise<void> {
+  try {
+    const userId = req.user!.userId;
+    const { name, timeZone } = req.body ?? {};
+
+    const data = await createAndSelectGoogleCalendar(
+      userId,
+      name,
+      timeZone
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "Calendario creado y seleccionado correctamente",
+      data
+    });
   } catch (error) {
     handleError(res, error);
   }

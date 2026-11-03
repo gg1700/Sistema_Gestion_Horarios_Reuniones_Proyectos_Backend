@@ -191,3 +191,16 @@ export async function disconnectGoogleCalendar(
     }
   });
 }
+export async function findPermanentCalendarChoice(
+  userId: string
+): Promise<string | null> {
+  const rows = await processReturnQuery(
+    `SELECT google_calendar_id
+     FROM public.calendar_calendar_choice
+     WHERE user_id = $1`,
+    [userId]
+  );
+
+  return (rows[0] as { google_calendar_id: string } | undefined)
+    ?.google_calendar_id ?? null;
+}

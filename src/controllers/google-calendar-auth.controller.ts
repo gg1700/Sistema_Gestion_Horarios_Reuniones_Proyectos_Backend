@@ -21,7 +21,8 @@ const CALENDAR_SCOPES = [
   "profile",
   "email",
   "https://www.googleapis.com/auth/calendar.calendarlist.readonly",
-  "https://www.googleapis.com/auth/calendar.events"
+  "https://www.googleapis.com/auth/calendar.events",
+  "https://www.googleapis.com/auth/calendar.calendars"
 ] as const;
 
 interface CalendarFlow {

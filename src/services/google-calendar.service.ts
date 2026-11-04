@@ -2,7 +2,8 @@ import { getValidGoogleAccessToken } from "./google-token.service";
 import { fetchGoogleCalendars, GoogleCalendarProviderError, revokeGoogleToken, GoogleCalendarRevocationError } from "./google-calendar-provider.service";
 import { findSelectedCalendar, saveSelectedCalendar, findGoogleCalendarConnection, disconnectGoogleCalendar } from "../repositories/google-calendar.repository";
 import type { GoogleCalendar, SelectedGoogleCalendar, GoogleCalendarConnectionInfo, GoogleCalendarDisconnectResult } from "../types/google-calendar.types";
-
+import { createGoogleCalendar } from "./google-calendar-provider.service";
+import { findPermanentCalendarChoice } from "../repositories/google-calendar.repository";
 export class GoogleCalendarError extends Error {
   constructor(
     public readonly code:
@@ -12,6 +13,7 @@ export class GoogleCalendarError extends Error {
       | "calendar_not_found"
       | "calendar_read_only"
       | "invalid_calendar_id"
+      | "calendar_selection_locked"
   ) {
     super(code);
     this.name = "GoogleCalendarError";
@@ -77,7 +79,7 @@ export async function selectGoogleCalendar(
   const calendars = await getCalendars(userId);
 
   const calendar = calendars.find(
-    (item) => item.id === calendarId
+    item => item.id === calendarId
   );
 
   if (!calendar) {
@@ -100,6 +102,13 @@ export async function selectGoogleCalendar(
       status: "connected"
     });
   } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "calendar_selection_locked"
+    ) {
+      throw new GoogleCalendarError("calendar_selection_locked");
+    }
+
     if (
       error instanceof Error &&
       error.message === "reconnection_required"
@@ -172,4 +181,98 @@ export async function unlinkGoogleCalendar(userId: string): Promise<GoogleCalend
     status: "disconnected",
     message: "Google Calendar desvinculado correctamente"
   };
+}
+export async function createAndSelectGoogleCalendar(
+  userId: string,
+  name: string,
+  timeZone: string
+): Promise<SelectedGoogleCalendar> {
+  if (
+    typeof name !== "string" ||
+    !name.trim() ||
+    name.trim().length > 150
+  ) {
+    throw new GoogleCalendarError("invalid_calendar_id");
+  }
+
+  if (
+    typeof timeZone !== "string" ||
+    !timeZone.trim()
+  ) {
+    throw new GoogleCalendarError("invalid_calendar_id");
+  }
+
+  try {
+    new Intl.DateTimeFormat("en-US", { timeZone });
+  } catch {
+    throw new GoogleCalendarError("invalid_calendar_id");
+  }
+
+  const existing = await findPermanentCalendarChoice(userId);
+
+  if (existing) {
+    throw new GoogleCalendarError("calendar_selection_locked");
+  }
+
+  let accessToken: string;
+
+  try {
+    accessToken = await getValidGoogleAccessToken(userId);
+  } catch (error) {
+    const code = (error as { code?: string }).code;
+
+    if (code === "google_not_connected") {
+      throw new GoogleCalendarError("google_not_connected");
+    }
+
+    if (code === "reconnection_required") {
+      throw new GoogleCalendarError("reconnection_required");
+    }
+
+    throw new GoogleCalendarError("google_calendar_unavailable");
+  }
+
+  let created;
+
+  try {
+    created = await createGoogleCalendar(
+      accessToken,
+      name.trim(),
+      timeZone
+    );
+  } catch (error) {
+    if (
+      error instanceof GoogleCalendarProviderError &&
+      error.code === "google_unauthorized"
+    ) {
+      throw new GoogleCalendarError("reconnection_required");
+    }
+
+    throw new GoogleCalendarError("google_calendar_unavailable");
+  }
+
+  try {
+    return await saveSelectedCalendar(userId, {
+      calendarId: created.id,
+      calendarName: created.summary,
+      timezone: created.timeZone ?? timeZone,
+      status: "connected"
+    });
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message === "calendar_selection_locked"
+    ) {
+      throw new GoogleCalendarError("calendar_selection_locked");
+    }
+
+    if (
+      error instanceof Error &&
+      error.message === "reconnection_required"
+    ) {
+      throw new GoogleCalendarError("reconnection_required");
+    }
+
+    throw error;
+  }
 }

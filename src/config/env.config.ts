@@ -13,6 +13,8 @@ function verifyEnvVariables(envVar: string, envValue: string | undefined): strin
 export const env = {
   NODE_ENV: verifyEnvVariables("NODE_ENV", "development"),
   PORT: verifyEnvVariables("PORT", "3000"),
+  PUBLIC_CALENDAR_BASE_URL: process.env.PUBLIC_CALENDAR_BASE_URL ||
+    (process.env.NODE_ENV === "production" ? undefined : "http://localhost:5173/calendar"),
   DB_URL: verifyEnvVariables("DB_URL", undefined),
   LOCAL_DB_URL: verifyEnvVariables("LOCAL_DB_URL", undefined),
   GOOGLE_CLIENT_ID: verifyEnvVariables("GOOGLE_CLIENT_ID", undefined),

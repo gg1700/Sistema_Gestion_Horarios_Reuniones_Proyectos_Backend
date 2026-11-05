@@ -265,7 +265,7 @@ export async function cancelPendingRequest(
   userId: string,
   client: PoolClient) {
   const query = `UPDATE "meeting_request"
-    SET status = $3, resolved_at = NOW()
+    SET status = $3, resolved_at = NOW(), updated_at = NOW()
     WHERE id = $1
     AND requester_user_id = $2
     AND status = $4

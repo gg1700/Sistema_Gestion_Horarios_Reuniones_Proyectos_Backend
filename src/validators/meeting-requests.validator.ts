@@ -91,3 +91,31 @@ export function validateMeetingRequestId(requestId: unknown) {
   }
   return requestId;
 }
+
+export function validateDecisionBody(payload: unknown) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  const allowedFields = ["decision", "responseMessage"];
+  Object.keys(p).forEach((field) => {
+    if (!allowedFields.includes(field)) throw new ValidationError(`Campo no permitido: ${field}`);
+  });
+  if (p.decision !== MeetingReqTypes.MeetingRequestStatus.ACCEPTED &&
+    p.decision !== MeetingReqTypes.MeetingRequestStatus.REJECTED)
+    throw new ValidationError("La decision debe ser accepted o rejected");
+
+  const processedInfo: MeetingReqTypes.MeetingRequestDecision = {
+    decision: p.decision
+  };
+
+  if (p.responseMessage !== undefined) {
+    if (typeof p.responseMessage !== "string")
+      throw new ValidationError("Tipo de dato invalido en el mensaje de respuesta");
+
+    const formattedMessage = collapseSpaces(p.responseMessage);
+    if (formattedMessage.length < 1 || formattedMessage.length > 2000)
+      throw new ValidationError("El mensaje de respuesta debe tener entre 1 y 2000 caracteres");
+
+    processedInfo.responseMessage = formattedMessage;
+  }
+
+  return processedInfo;
+}

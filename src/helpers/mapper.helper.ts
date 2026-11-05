@@ -190,7 +190,9 @@ export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequest
     endsAt: request.requested_end_at,
     timeZone: request.timezone,
     status: request.status,
-    createdAt: request.created_at
+    createdAt: request.created_at,
+    resolvedAt: request.resolved_at ?? null,
+    ownerResponseMessage: request.owner_response_message ?? null
   };
 }
 

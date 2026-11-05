@@ -23,6 +23,14 @@ router.get(
 );
 
 router.patch(
+  "/received/:requestId/decision",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  Validations.decideMeetingRequest,
+  MeetingReqController.decideMeetingRequest
+);
+
+router.patch(
   "/:requestId",
   Session.verifySession,
   Session.requireActiveProfileUser,

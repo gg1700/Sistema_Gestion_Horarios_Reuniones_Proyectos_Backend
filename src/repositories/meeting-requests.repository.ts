@@ -309,3 +309,86 @@ export async function createCancelNotification(
   return notification.rows;
 }
 
+export async function findRequestForRecipient(
+  requestId: string,
+  recipientUserId: string,
+  client: PoolClient) {
+  const query = `SELECT id, requester_user_id, recipient_user_id, requested_start_at,
+    requested_end_at, timezone, title, message, status FROM "meeting_request"
+    WHERE id = $1 AND recipient_user_id = $2
+    FOR UPDATE`;
+  const values = [requestId, recipientUserId];
+  const requestFound = await client.query(query, values);
+  return requestFound.rows;
+}
+
+export async function updateMeetingRequestDecision(
+  requestId: string,
+  recipientUserId: string,
+  decision:
+    | MeetingReqTypes.MeetingRequestStatus.ACCEPTED
+    | MeetingReqTypes.MeetingRequestStatus.REJECTED,
+  responseMessage: string | null,
+  calendarEventId: string | null,
+  client: PoolClient) {
+  const query = `UPDATE "meeting_request" SET
+    status = $3,
+    owner_response_message = $4,
+    calendar_event_id = $5,
+    resolved_at = NOW(),
+    updated_at = NOW()
+    WHERE id = $1 AND recipient_user_id = $2 AND status = $6
+    RETURNING
+    id, title, message, requested_start_at, requested_end_at,
+    timezone, status, created_at, resolved_at, owner_response_message`;
+  const values = [
+    requestId,
+    recipientUserId,
+    decision,
+    responseMessage,
+    calendarEventId,
+    MeetingReqTypes.MeetingRequestStatus.PENDING
+  ];
+  const updatedRequest = await client.query(query, values);
+  return updatedRequest.rows;
+}
+
+export async function createDecisionNotification(
+  requesterUserId: string,
+  recipientUserId: string,
+  requestId: string,
+  decision:
+    | MeetingReqTypes.MeetingRequestStatus.ACCEPTED
+    | MeetingReqTypes.MeetingRequestStatus.REJECTED,
+  client: PoolClient) {
+  const isAccepted = (decision === MeetingReqTypes.MeetingRequestStatus.ACCEPTED);
+  const notificationType = isAccepted
+    ? MeetingReqTypes.NotificationType.ACCEPTED
+    : MeetingReqTypes.NotificationType.REJECTED;
+  const notificationTitle = isAccepted
+    ? "Solicitud de reunion aceptada"
+    : "Solicitud de reunion rechazada";
+  const notificationMessage = isAccepted
+    ? "El destinatario ha aceptado tu solicitud de reunion."
+    : "El destinatario ha rechazado tu solicitud de reunion.";
+  const payload = JSON.stringify({
+    requestId,
+    action: decision
+  });
+
+  const query = `INSERT INTO "notification" (user_id, actor_user_id, meeting_request_id,
+    notification_type, title, message, payload)
+    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    RETURNING *`;
+  const values = [
+    requesterUserId,
+    recipientUserId,
+    requestId,
+    notificationType,
+    notificationTitle,
+    notificationMessage,
+    payload
+  ];
+  const notification = await client.query(query, values);
+  return notification.rows;
+}

@@ -9,6 +9,7 @@ import { ServerError, ConflictError } from "../helpers/errors.helper";
 import { findGoogleCalendarForUser, upsertCalendarEventMirror } from "../repositories/calendarEvents.repository";
 import { createGoogleEvent, deleteGoogleEvent } from "./googleCalendarClient.service";
 import type { CreateCalendarEventInput } from "../types/calendarEvents.types";
+import type { UpsertCalendarEventMirrorInput } from "../repositories/calendarEvents.repository";
 
 export async function createMeetingRequest(userId: string, meetingReqInfo: MeetingReqTypes.MeetingRequest) {
   try {
@@ -390,7 +391,7 @@ async function compensateGoogleEvent(userId: string, googleEventId: string) {
 export async function decideMeetingRequest(
   userId: string,
   requestId: string,
-  decisionInfo: MeetingReqTypes.MeetingRequestDecision) {
+  decisionInfo: MeetingReqTypes.MeetingRequestDecision): Promise<DecisionResult> {
   try {
     if (decisionInfo.decision === MeetingReqTypes.MeetingRequestStatus.REJECTED) {
       const result = await processTransaction<DecisionResult>(async function (client: PoolClient) {
@@ -477,7 +478,7 @@ export async function decideMeetingRequest(
         if (currentTimezone !== preparation.recipientTimezone)
           return { result: false, statusCode: 409, message: "La zona horaria del destinatario cambio durante la aceptacion" };
 
-        const info: any = {
+        const info: UpsertCalendarEventMirrorInput = {
           userId,
           calendarConnectionId: calendar.connectionId,
           googleEventId: googleEvent.id,

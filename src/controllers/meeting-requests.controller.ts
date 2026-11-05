@@ -65,13 +65,13 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
         return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });
       parsedLimit = Number(limit);
       if (!Number.isSafeInteger(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100)
-        return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });   
+        return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });
     }
-    
+
     const { result, statusCode, message, data } = await MeetingReqService.
       listSentMeetingRequests(validatedUserId, actionType, status, parsedPage, parsedLimit);
     if (!result) return res.status(statusCode).json({ success: false, message: message });
-    
+
     return res.status(200).json({ success: true, message: message, data: data });
   } catch (err) {
     return res.status(500).json({
@@ -127,14 +127,18 @@ export async function decideMeetingRequest(req: Request, res: Response) {
     const requestId = MeetingReqValidation.validateMeetingRequestId(req.params.requestId);
     const decisionInfo = req.body as MeetingReqTypes.MeetingRequestDecision;
 
-    const { result, statusCode, message, data } = await MeetingReqService.
-      decideMeetingRequest(validatedUserId, requestId, decisionInfo);
-    if (!result) return res.status(statusCode).json({ success: false, message });
+    const decisionResult = await MeetingReqService.decideMeetingRequest(validatedUserId, requestId, decisionInfo);
+    if (!decisionResult.result) {
+      return res.status(decisionResult.statusCode).json({
+        success: false,
+        message: decisionResult.message
+      });
+    }
 
-    return res.status(statusCode).json({
+    return res.status(decisionResult.statusCode).json({
       success: true,
-      message,
-      data
+      message: decisionResult.message,
+      data: decisionResult.data
     });
   } catch (err) {
     const statusCode = err instanceof ServerError ? err.statusCode : 500;

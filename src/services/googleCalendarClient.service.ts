@@ -425,6 +425,7 @@ function makeGoogleEventBody(input: CreateCalendarEventInput): object {
     summary: input.title,
     description: input.description,
     location: input.location,
+    visibility: input.isPublic ? "public" : "private",
     start: {
       dateTime: input.startsAt,
       timeZone: input.timeZone,

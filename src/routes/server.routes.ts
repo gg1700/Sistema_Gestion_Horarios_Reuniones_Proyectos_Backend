@@ -7,7 +7,7 @@ import AuthRoutes from "./auth.routes";
 import GoogleCalendarRoutes from "./google-calendar.routes";
 import CalendarEventsRoutes from "./calendarEvents.routes";
 import GithubRoutes from "./github.routes";
-//import MeetingReqRoutes from "./meeting-requests.routes";
+import MeetingReqRoutes from "./meeting-requests.routes";
 
 const router = Router();
 
@@ -33,7 +33,7 @@ router.get(
 );
 
 router.use("/api/v1/integrations/github", GithubRoutes);
-//router.use("/api/v1/meeting-requests", MeetingReqRoutes)
+router.use("/api/v1/meeting-requests", MeetingReqRoutes)
 
 router.use((req: Request, res: Response) => {
   res.status(404).json({ error: "Ruta no encontrada..." });

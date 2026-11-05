@@ -45,7 +45,7 @@ export async function findCalendarSchedules(recipientUserId: string, startAt: Da
   const query = `SELECT id, starts_at, ends_at FROM "calendar_event"
     WHERE user_id = $1 AND event_status <> $2
     AND starts_at < $4 AND ends_at > $3`;
-  const values = [recipientUserId, MeetingReqTypes.CalendarEvent.CANCELLED ,startAt, endsAt];
+  const values = [recipientUserId, MeetingReqTypes.CalendarEvent.CANCELLED, startAt, endsAt];
   const scheduledActivities = await client.query(query, values);
   return scheduledActivities.rows;
 }
@@ -128,7 +128,7 @@ export async function listRequests(
   status?: string,
   page?: number,
   limit?: number) {
-  const userConstraint = (actionType === "sent") ? "requester_user_id": "recipient_user_id";
+  const userConstraint = (actionType === "sent") ? "requester_user_id" : "recipient_user_id";
   const counterpart = (actionType === "sent") ? "recipient" : "requester";
   const limitValue = (limit !== undefined) ? limit : 20;
   const offsetValue = (page !== undefined) ? ((page - 1) * limitValue) : 0;
@@ -269,8 +269,17 @@ export async function cancelPendingRequest(
     WHERE id = $1
     AND requester_user_id = $2
     AND status = $4
-    RETURNING id, title, message, requested_start_at,
-    requested_end_at, timezone, status, created_at`;
+    RETURNING
+    id,
+    title,
+    message,
+    requested_start_at,
+    requested_end_at,
+    timezone,
+    status,
+    created_at,
+    resolved_at,
+    owner_response_message`;
   const values = [
     requestId,
     userId,

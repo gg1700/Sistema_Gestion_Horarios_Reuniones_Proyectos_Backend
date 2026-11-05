@@ -12,11 +12,14 @@ import type { CreateCalendarEventInput } from "../types/calendarEvents.types";
 import type { UpsertCalendarEventMirrorInput } from "../repositories/calendarEvents.repository";
 import { synchronizeCalendarEvents } from "./calendarEvents.service";
 
-export async function createMeetingRequest(userId: string, meetingReqInfo: MeetingReqTypes.MeetingRequest) {
+export async function createMeetingRequest(
+  userId: string | null, 
+  meetingReqInfo: MeetingReqTypes.MeetingRequest) {
   try {
-    const userFound = await ProfileRepo.existsUser(userId);
-    if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
-
+    if (userId !== null) {
+      const userFound = await ProfileRepo.existsUser(userId);
+      if (!userFound) return { result: false, statusCode: 404, message: "El usuario no existe" };
+    }
     const formatedInfo = Mapper.meetingReqInfoToDB(meetingReqInfo);
 
     const recipientHandle = formatedInfo.recipient_handle;
@@ -25,7 +28,7 @@ export async function createMeetingRequest(userId: string, meetingReqInfo: Meeti
       return { result: false, statusCode: 404, message: "El usuario solicitado no existe" };
 
     const recipientUserId = recipientUserFound[0].id;
-    if (recipientUserId === userId)
+    if (userId !== null && recipientUserId === userId)
       return { result: false, statusCode: 400, message: "El usuario solicitado es el usuario solicitante" };
 
     const publicCalendarFound = await MeetingReqRepo.hasPublicCalendarActive(recipientUserId);

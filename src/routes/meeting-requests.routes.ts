@@ -8,9 +8,8 @@ const router = Router();
 
 router.post(
   "/",
-  RateLimit.authRateLimit,
-  Session.verifySession,
-  Session.requireActiveProfileUser,
+  RateLimit.publicMeetingRequestRateLimit,
+  Session.optionalSession,
   Validations.createMeetingRequest,
   MeetingReqController.createMeetingRequest
 );

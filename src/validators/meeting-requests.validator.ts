@@ -44,17 +44,31 @@ function validateTimezone(timezone: unknown) {
   return formatedTimezone;
 }
 
-export function validateMeetingReqInfo(payload: unknown) {
-  const p = GeneralValidations.validateObject(payload, "Body") as unknown as MeetingReqTypes.MeetingRequest;
-  const proccessedInfo: MeetingReqTypes.MeetingRequest = {
+export function validateMeetingReqInfo(payload: unknown, guestRequest = false) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  const allowedFields = ["recipientHandle", "title", "message", "startsAt", "endsAt", "timeZone"];
+
+  if (guestRequest) allowedFields.push("guestName", "guestEmail");
+  Object.keys(p).forEach((field) => {
+    if (!allowedFields.includes(field)) {
+      throw new ValidationError(`Campo no permitido: ${field}`);
+    }
+  });
+
+  const processedInfo: MeetingReqTypes.MeetingRequest = {
     recipientHandle: validateHandlename(p.recipientHandle),
     title: GeneralValidations.validateProperNoun(p.title, "Titulo de la Reunion"),
     startsAt: GeneralValidations.validateDate(p.startsAt, "Hora de Inicio"),
     endsAt: GeneralValidations.validateDate(p.endsAt, "Hora de Finalizacion"),
     timeZone: validateTimezone(p.timeZone)
+  };
+  if (guestRequest) {
+    processedInfo.guestName = GeneralValidations.validateProperNoun(p.guestName, "Nombre del solicitante");
+    processedInfo.guestEmail = GeneralValidations.validateEmail(p.guestEmail, "Correo del solicitante");
   }
-  if (p.message !== undefined) proccessedInfo.message = validateMessage(p.message);
-  return proccessedInfo;
+  if (p.message !== undefined) processedInfo.message = validateMessage(p.message);
+
+  return processedInfo;
 }
 
 export function validateUpdateMeetingRequest(payload: unknown) {

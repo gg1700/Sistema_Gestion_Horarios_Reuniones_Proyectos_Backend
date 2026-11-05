@@ -30,6 +30,36 @@ export function verifySession(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export async function optionalSession(req: Request, res: Response, next: NextFunction) {
+  const authorization = req.headers.authorization;
+  const cookieToken = req.signedCookies?.session;
+  
+  if (cookieToken === false)
+    return res.status(401).json({ success: false, message: "Sesion invalida" });
+  if (authorization && !authorization.startsWith("Bearer "))
+    return res.status(401).json({ success: false, message: "Autorizacion invalida" });
+
+  const token = authorization
+    ? authorization.slice(7).trim()
+    : typeof cookieToken === "string" ? cookieToken : "";
+  if (!token) return next();
+
+  try {
+    const user = SessionService.verifySession(token);
+    if (!(await isActiveProfileUser(user.userId))) {
+      return res.status(401).json({
+        success: false,
+        message: "Sesion invalida o usuario no disponible"
+      });
+    }
+
+    req.user = user;
+    return next();
+  } catch {
+    return res.status(401).json({ success: false, message: "Sesion invalida o expirada" });
+  }
+}
+
 export async function requireActiveProfileUser(req: Request, res: Response, next: NextFunction) {
   const userId = req.user?.userId;
   if (!userId || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(userId)) {

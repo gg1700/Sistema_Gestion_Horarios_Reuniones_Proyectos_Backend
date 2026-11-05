@@ -31,3 +31,4 @@ export const githubActivityRateLimit = createRateLimit(15);
 export const googleCalendarRateLimit = createRateLimit(30);
 export const availabilityRulesRateLimit = createRateLimit(30);
 export const publicLinkRateLimit = createRateLimit(60);
+export const publicMeetingRequestRateLimit = createRateLimit(10);

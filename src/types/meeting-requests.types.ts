@@ -1,5 +1,7 @@
 export interface MeetingRequest {
   recipientHandle: string;
+  guestName?: string;
+  guestEmail?: string;
   title: string;
   message?: string;
   startsAt: Date;
@@ -9,6 +11,8 @@ export interface MeetingRequest {
 
 export interface MeetingRequestDB {
   recipient_handle: string;
+  guest_name?: string;
+  guest_email?: string;
   title: string;
   message?: string;
   requested_start_at: Date;
@@ -51,6 +55,8 @@ export interface MeetingRequestRow {
   created_at: Date;
   resolved_at?: Date | null;
   owner_response_message?: string | null;
+  guest_name: string | null;
+  guest_email: string | null;
 }
 export interface MeetingRequestResponse {
   id: string;
@@ -63,11 +69,13 @@ export interface MeetingRequestResponse {
   createdAt: Date;
   resolvedAt: Date | null;
   ownerResponseMessage: string | null;
+  guestName: string | null;
+  guestEmail: string | null;
 }
 
 export interface ListedRequestsResponse {
   id: string;
-  handleName: string;
+  handleName: string | null;
   name: string;
   firstSurname: string;
   title: string;
@@ -78,12 +86,13 @@ export interface ListedRequestsResponse {
   status: MeetingRequestStatus;
   createdAt: Date;
   resolvedAt: Date | null;
-  ownerResponseMessage?: string | null
+  ownerResponseMessage?: string | null;
+  guestEmail: string | null;
 }
 
 export interface ListedRequestsRows {
   id: string;
-  recipient_handle: string;
+  recipient_handle: string | null;
   recipient_name: string;
   recipient_surname: string;
   title: string;
@@ -94,7 +103,8 @@ export interface ListedRequestsRows {
   status: MeetingRequestStatus;
   created_at: Date;
   resolved_at: Date | null;
-  owner_response_message?: string | null
+  owner_response_message?: string | null;
+  guest_email: string | null;
 }
 
 export interface UpdateMeetingRequest {
@@ -115,14 +125,14 @@ export interface UpdateMeetingRequestDB {
 
 export interface MeetingRequestDecision {
   decision:
-    | MeetingRequestStatus.ACCEPTED
-    | MeetingRequestStatus.REJECTED;
+  | MeetingRequestStatus.ACCEPTED
+  | MeetingRequestStatus.REJECTED;
   responseMessage?: string;
 }
 
 export interface MeetingRequestDecisionRow {
   id: string;
-  requester_user_id: string;
+  requester_user_id: string | null;
   recipient_user_id: string;
   requested_start_at: Date;
   requested_end_at: Date;

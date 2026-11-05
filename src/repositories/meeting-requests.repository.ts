@@ -60,24 +60,26 @@ export async function findPendingRequests(recipientUserId: string, startAt: Date
 }
 
 export async function createMeetingRequest(
-  userId: string,
+  requesterUserId: string | null,
   recipientUserId: string,
   requestInfo: MeetingReqTypes.MeetingRequestDB,
   client: PoolClient) {
   const query = `INSERT INTO "meeting_request" (
-    requester_user_id, recipient_user_id, requested_start_at, requested_end_at, 
-    timezone, title, message, status)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING *`;
-  const { title, message, requested_start_at, requested_end_at, timezone } = requestInfo;
+    requester_user_id, recipient_user_id, requested_start_at, requested_end_at,
+    timezone, title, message, guest_name, guest_email, status)
+  VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+  RETURNING *`;
+  const { title, message, guest_name, guest_email, requested_start_at, requested_end_at, timezone } = requestInfo;
   const values = [
-    userId,
+    requesterUserId,
     recipientUserId,
     requested_start_at,
     requested_end_at,
     timezone,
     title,
-    message,
+    message ?? null,
+    guest_name ?? null,
+    guest_email ?? null,
     MeetingReqTypes.MeetingRequestStatus.PENDING
   ];
   const newMeetingRequest = await client.query(query, values);
@@ -86,7 +88,7 @@ export async function createMeetingRequest(
 
 export async function createNotification(
   recipientUserId: string,
-  userId: string,
+  actorUserId: string | null,
   requestId: string,
   requestInfo: MeetingReqTypes.MeetingRequestDB,
   client: PoolClient) {
@@ -99,15 +101,15 @@ export async function createNotification(
   const { title } = requestInfo;
   const values = [
     recipientUserId,
-    userId,
+    actorUserId,
     requestId,
     MeetingReqTypes.NotificationType.CREATED,
     "Nueva solicitud de reunion",
     `Has recibido una solicitud de reunion: ${title}`,
     payload
   ];
-  const notificacion = await client.query(query, values);
-  return notificacion.rows;
+  const notification = await client.query(query, values);
+  return notification.rows;
 }
 
 export async function lockRecipientUser(
@@ -129,10 +131,13 @@ export async function listRequests(
   page?: number,
   limit?: number) {
   const userConstraint = (actionType === "sent") ? "requester_user_id" : "recipient_user_id";
-  const counterpart = (actionType === "sent") ? "recipient" : "requester";
+  const counterpartHandle = (actionType === "sent") ? "recipient.handle_name" : "requester.handle_name";
+  const counterpartName = (actionType === "sent") ? "recipient.name" : "COALESCE(requester.name, mr.guest_name)";
+  const counterpartSurname = (actionType === "sent") ? "recipient.first_surname" : "COALESCE(requester.first_surname, '')";
+  const guestEmail = (actionType === "received") ? "mr.guest_email" : "NULL::varchar";
   const limitValue = (limit !== undefined) ? limit : 20;
-  const offsetValue = (page !== undefined) ? ((page - 1) * limitValue) : 0;
-  const values = [userId, limitValue, offsetValue];
+  const offsetValue = (page !== undefined) ? (page - 1) * limitValue : 0;
+  const values: unknown[] = [userId, limitValue, offsetValue];
   let filter = "";
   if (status !== undefined) {
     values.push(status);
@@ -140,11 +145,12 @@ export async function listRequests(
   }
   const query = `SELECT mr.id, mr.title, mr.message, mr.requested_start_at, mr.requested_end_at,
     mr.timezone, mr.status, mr.created_at, mr.resolved_at, mr.owner_response_message,
-    ${counterpart}.handle_name AS recipient_handle,
-    ${counterpart}.name AS recipient_name,
-    ${counterpart}.first_surname AS recipient_surname
+    ${counterpartHandle} AS recipient_handle,
+    ${counterpartName} AS recipient_name,
+    ${counterpartSurname} AS recipient_surname,
+    ${guestEmail} AS guest_email
     FROM "meeting_request" mr
-    JOIN "user" requester ON requester.id = mr.requester_user_id
+    LEFT JOIN "user" requester ON requester.id = mr.requester_user_id
     JOIN "user" recipient ON recipient.id = mr.recipient_user_id
     WHERE mr.${userConstraint} = $1 ${filter}
     ORDER BY mr.created_at DESC, mr.id DESC

@@ -8,24 +8,25 @@ import * as MeetingReqValidation from "../validators/meeting-requests.validator"
 
 export async function createMeetingRequest(req: Request, res: Response) {
   try {
-    const { userId } = req.user as TokenTypes.TokenPayload;
-    const validatedUserId = GeneralValidations.validateId(userId);
+    const requesterUserId = req.user?.userId ?? null;
 
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Infomacion a modificar no especificada",
+        message: "Informacion de solicitud no especificada"
       });
     }
 
-    const { result, statusCode, message, data } = await MeetingReqService.createMeetingRequest(validatedUserId, req.body);
-    if (!result) return res.status(statusCode).json({ success: false, message: message });
+    const { result, statusCode, message, data } = await MeetingReqService.createMeetingRequest(requesterUserId, req.body);
+    if (!result)
+      return res.status(statusCode).json({ success: false, message });
 
     return res.status(statusCode).json({
       success: true,
-      message: message,
-      data: data
+      message,
+      data
     });
+
   } catch (err) {
     return res.status(500).json({
       success: false,

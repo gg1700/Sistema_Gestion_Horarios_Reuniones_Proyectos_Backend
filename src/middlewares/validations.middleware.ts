@@ -36,7 +36,7 @@ export const createAdditionalInfo = validateRequestBody(ProfileValidations.valid
 
 export function createMeetingRequest(req: Request, res: Response, next: NextFunction) {
   try {
-    req.body = MeetingReqValidations.validateMeetingReqInfo(req.body);
+    req.body = MeetingReqValidations.validateMeetingReqInfo(req.body, !req.user);
     next();
   } catch (err) {
     const statusCode = (err instanceof ServerError) ? err.statusCode : 400;

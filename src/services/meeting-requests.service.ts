@@ -6,10 +6,11 @@ import * as MeetingReqRepo from "../repositories/meeting-requests.repository";
 import * as Mapper from "../helpers/mapper.helper";
 import * as DateUtils from "../utils/date";
 import { ServerError, ConflictError } from "../helpers/errors.helper";
-import { findGoogleCalendarForUser, upsertCalendarEventMirror } from "../repositories/calendarEvents.repository";
+import { upsertCalendarEventMirror } from "../repositories/calendarEvents.repository";
 import { createGoogleEvent, deleteGoogleEvent } from "./googleCalendarClient.service";
 import type { CreateCalendarEventInput } from "../types/calendarEvents.types";
 import type { UpsertCalendarEventMirrorInput } from "../repositories/calendarEvents.repository";
+import { synchronizeCalendarEvents } from "./calendarEvents.service";
 
 export async function createMeetingRequest(userId: string, meetingReqInfo: MeetingReqTypes.MeetingRequest) {
   try {
@@ -447,7 +448,7 @@ export async function decideMeetingRequest(
     if (!preparation.result)
       return preparation;
 
-    const calendar = await findGoogleCalendarForUser(userId);
+    const calendar = await synchronizeCalendarEvents(userId);
     if (!calendar || calendar.connectionStatus !== "connected" || !calendar.calendarId?.trim())
       throw new ConflictError("Google Calendar no esta conectado o requiere autorizacion");
 

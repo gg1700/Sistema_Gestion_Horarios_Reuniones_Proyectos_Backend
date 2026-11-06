@@ -26,11 +26,7 @@ router.use("/api/v1/profile", ProfileRoutes);
 router.use("/api/v1/auth", AuthRoutes);
 router.use("/api/v1/integrations/google-calendar", GoogleCalendarRoutes);
 
-router.get(
-  "/api/v1/public/profiles/:handle",
-  publicProfileRateLimit,
-  ProfileController.getPublicProfile
-);
+router.get("/api/v1/public/profiles/:handle", publicProfileRateLimit, ProfileController.getPublicProfile);
 
 router.use("/api/v1/integrations/github", GithubRoutes);
 router.use("/api/v1/meeting-requests", MeetingReqRoutes)
@@ -39,7 +35,6 @@ router.use("/api/v1/calendar/availability-rules", AvailabilityRulesRoutes);
 router.use("/api/v1/calendar/public-link", PublicCalendarLinkRoutes);
 router.use("/api/v1/public/calendars", PublicCalendarAvailabilityRoutes);
 
-// Registro temporal para probar los eventos privados con Postman
 router.use("/api/v1/calendar", CalendarEventsRoutes);
 
 router.use((req: Request, res: Response) => {

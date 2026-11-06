@@ -263,8 +263,7 @@ export async function createCalendarEvent(
     try {
       await deleteGoogleEvent(userId, googleEvent.id);
     } catch {
-      // La compensación es de mejor esfuerzo.
-      // Se conserva el error original.
+      //
     }
 
     throw error;

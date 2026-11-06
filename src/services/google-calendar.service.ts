@@ -4,6 +4,7 @@ import { findSelectedCalendar, saveSelectedCalendar, findGoogleCalendarConnectio
 import type { GoogleCalendar, SelectedGoogleCalendar, GoogleCalendarConnectionInfo, GoogleCalendarDisconnectResult } from "../types/google-calendar.types";
 import { createGoogleCalendar } from "./google-calendar-provider.service";
 import { findPermanentCalendarChoice } from "../repositories/google-calendar.repository";
+
 export class GoogleCalendarError extends Error {
   constructor(
     public readonly code:

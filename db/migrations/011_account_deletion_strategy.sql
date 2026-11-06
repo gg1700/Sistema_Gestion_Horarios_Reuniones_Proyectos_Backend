@@ -1,4 +1,3 @@
--- T-19: retain only an anonymous user row after account deletion.
 ALTER TABLE public."user" DROP CONSTRAINT user_status_check;
 ALTER TABLE public."user"
   ADD CONSTRAINT user_status_check CHECK (status IN ('active', 'inactive', 'deleted'));
@@ -13,6 +12,3 @@ ALTER TABLE public."user"
     deleted_at IS NOT NULL OR
     (name IS NOT NULL AND first_surname IS NOT NULL AND email IS NOT NULL)
   );
-
--- All current foreign keys to user already use ON DELETE CASCADE (T-04).
--- New dependent tables must preserve this rule for a future permanent purge.

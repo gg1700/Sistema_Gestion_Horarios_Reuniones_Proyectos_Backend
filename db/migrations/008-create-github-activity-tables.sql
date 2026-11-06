@@ -1,4 +1,3 @@
--- El cliente T-39 ya consulta estas tablas; faltaba su migración versionada.
 CREATE TABLE public.github_activity_list (
     user_id UUID PRIMARY KEY REFERENCES public."user"(id) ON DELETE CASCADE,
     activity TEXT NOT NULL,

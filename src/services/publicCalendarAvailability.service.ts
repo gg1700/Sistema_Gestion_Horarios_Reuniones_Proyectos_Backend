@@ -45,10 +45,6 @@ function timeToMinutes(value: string): number {
   return hours * 60 + minutes;
 }
 
-/**
- * Convierte una hora local de una zona IANA a UTC.
- * Devuelve null cuando esa hora local no existe por un cambio de horario.
- */
 function localDateTimeToUtc(
   date: string,
   time: string,
@@ -154,11 +150,6 @@ export async function getPublicCalendarAvailability(
     };
   }
 
-  /*
-   * Consultamos un margen de dos días a cada lado.
-   * Así no dependemos de asumir que la zona horaria del servidor
-   * coincide con la del propietario.
-   */
   const fromParts = parseDate(from);
   const toParts = parseDate(to);
 

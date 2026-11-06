@@ -15,13 +15,11 @@ export function validateRepositorySelection(body: unknown): number[] {
   return ids;
 }
 
-/** T-43: páginas de 100, orden global de GitHub por último push. */
 export async function fetchGithubRepositories(client: Octokit, account: GithubRepositoryAccount) {
   const user = await client.request("GET /user", { headers: { "X-GitHub-Api-Version": "2026-03-10" } });
   if (String(user.data.id) !== account.provider_user_id) {
     throw new GithubRepositoryError(409, "GITHUB_REAUTH_REQUIRED", "La identidad de GitHub cambió. Vuelve a autorizarla.");
   }
-  // La cabecera del token es autoritativa, incluso cuando está vacía.
   const scopes = (user.headers["x-oauth-scopes"] ?? account.scopes ?? "").split(/[\s,]+/);
   const canReadPrivate = scopes.includes("repo");
   const repositories = new Map<number, GithubRepository>();

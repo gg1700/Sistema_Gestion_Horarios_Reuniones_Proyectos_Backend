@@ -1,6 +1,3 @@
--- Requires the base user table migration.
-
--- Validate existing handles before normalization.
 DO $$
 BEGIN
   IF EXISTS (
@@ -23,16 +20,13 @@ BEGIN
 END
 $$;
 
--- Normalize existing handles.
 UPDATE public."user"
 SET handle_name = LOWER(BTRIM(handle_name))
 WHERE handle_name IS DISTINCT FROM LOWER(BTRIM(handle_name));
 
--- Add public link activation status.
 ALTER TABLE public."user"
   ADD COLUMN public_link_active BOOLEAN NOT NULL DEFAULT FALSE;
 
--- Enforce valid handle format.
 ALTER TABLE public."user"
   ADD CONSTRAINT user_handle_name_format_check
   CHECK (

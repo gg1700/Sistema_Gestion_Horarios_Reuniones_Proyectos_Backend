@@ -10,7 +10,6 @@ export async function findGithubRepositoryAccount(userId: string): Promise<Githu
 }
 
 export async function expireGithubRepositoryAccount(userId: string, account: GithubRepositoryAccount) {
-  // No caducar un token renovado mientras la petición anterior estaba en vuelo.
   await processReturnQuery(`UPDATE public.external_account SET state = 'expired', updated_at = NOW()
     WHERE user_id = $1 AND id = $2 AND access_token = $3`, [userId, account.id, account.access_token]);
 }

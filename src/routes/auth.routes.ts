@@ -9,7 +9,6 @@ import { requireRepositoryOrigin } from "../middlewares/repository-origin.middle
 
 const router = Router();
 
-// Cierre de la cookie actual. No revoca otras copias del JWT.
 router.post("/logout", requireRepositoryOrigin, (req, res) => {
   res.clearCookie("session", {httpOnly:true, signed:true, secure:env.NODE_ENV === 'production', sameSite:'lax',path:'/'});
   res.status(204).end();

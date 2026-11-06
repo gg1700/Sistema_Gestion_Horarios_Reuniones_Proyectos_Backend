@@ -3,7 +3,6 @@ import type { ExternalAccountForRevocation } from "../types/account-deletion.typ
 import { processReturnQuery } from "../utils/query";
 
 export async function findAccountsForRevocation(client: PoolClient, userId: string): Promise<ExternalAccountForRevocation[]> {
-  // T-24 is not integrated yet. Without its table there can be no linked accounts.
   const { rows: tables } = await client.query<{ table_name: string | null }>(
     `SELECT to_regclass('public.external_account')::text AS table_name`
   );

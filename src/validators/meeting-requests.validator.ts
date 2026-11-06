@@ -44,17 +44,31 @@ function validateTimezone(timezone: unknown) {
   return formatedTimezone;
 }
 
-export function validateMeetingReqInfo(payload: unknown) {
-  const p = GeneralValidations.validateObject(payload, "Body") as unknown as MeetingReqTypes.MeetingRequest;
-  const proccessedInfo: MeetingReqTypes.MeetingRequest = {
+export function validateMeetingReqInfo(payload: unknown, guestRequest = false) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  const allowedFields = ["recipientHandle", "title", "message", "startsAt", "endsAt", "timeZone"];
+
+  if (guestRequest) allowedFields.push("guestName", "guestEmail");
+  Object.keys(p).forEach((field) => {
+    if (!allowedFields.includes(field)) {
+      throw new ValidationError(`Campo no permitido: ${field}`);
+    }
+  });
+
+  const processedInfo: MeetingReqTypes.MeetingRequest = {
     recipientHandle: validateHandlename(p.recipientHandle),
     title: GeneralValidations.validateProperNoun(p.title, "Titulo de la Reunion"),
     startsAt: GeneralValidations.validateDate(p.startsAt, "Hora de Inicio"),
     endsAt: GeneralValidations.validateDate(p.endsAt, "Hora de Finalizacion"),
     timeZone: validateTimezone(p.timeZone)
+  };
+  if (guestRequest) {
+    processedInfo.guestName = GeneralValidations.validateProperNoun(p.guestName, "Nombre del solicitante");
+    processedInfo.guestEmail = GeneralValidations.validateEmail(p.guestEmail, "Correo del solicitante");
   }
-  if (p.message !== undefined) proccessedInfo.message = validateMessage(p.message);
-  return proccessedInfo;
+  if (p.message !== undefined) processedInfo.message = validateMessage(p.message);
+
+  return processedInfo;
 }
 
 export function validateUpdateMeetingRequest(payload: unknown) {
@@ -90,4 +104,32 @@ export function validateMeetingRequestId(requestId: unknown) {
     throw new ValidationError("Id de solicitud de reunion invalido");
   }
   return requestId;
+}
+
+export function validateDecisionBody(payload: unknown) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  const allowedFields = ["decision", "responseMessage"];
+  Object.keys(p).forEach((field) => {
+    if (!allowedFields.includes(field)) throw new ValidationError(`Campo no permitido: ${field}`);
+  });
+  if (p.decision !== MeetingReqTypes.MeetingRequestStatus.ACCEPTED &&
+    p.decision !== MeetingReqTypes.MeetingRequestStatus.REJECTED)
+    throw new ValidationError("La decision debe ser accepted o rejected");
+
+  const processedInfo: MeetingReqTypes.MeetingRequestDecision = {
+    decision: p.decision
+  };
+
+  if (p.responseMessage !== undefined) {
+    if (typeof p.responseMessage !== "string")
+      throw new ValidationError("Tipo de dato invalido en el mensaje de respuesta");
+
+    const formattedMessage = collapseSpaces(p.responseMessage);
+    if (formattedMessage.length < 1 || formattedMessage.length > 2000)
+      throw new ValidationError("El mensaje de respuesta debe tener entre 1 y 2000 caracteres");
+
+    processedInfo.responseMessage = formattedMessage;
+  }
+
+  return processedInfo;
 }

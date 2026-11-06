@@ -8,24 +8,25 @@ import * as MeetingReqValidation from "../validators/meeting-requests.validator"
 
 export async function createMeetingRequest(req: Request, res: Response) {
   try {
-    const { userId } = req.user as TokenTypes.TokenPayload;
-    const validatedUserId = GeneralValidations.validateId(userId);
+    const requesterUserId = req.user?.userId ?? null;
 
     if (!req.body || Object.keys(req.body).length === 0) {
       return res.status(400).json({
         success: false,
-        message: "Infomacion a modificar no especificada",
+        message: "Informacion de solicitud no especificada"
       });
     }
 
-    const { result, statusCode, message, data } = await MeetingReqService.createMeetingRequest(validatedUserId, req.body);
-    if (!result) return res.status(statusCode).json({ success: false, message: message });
+    const { result, statusCode, message, data } = await MeetingReqService.createMeetingRequest(requesterUserId, req.body);
+    if (!result)
+      return res.status(statusCode).json({ success: false, message });
 
     return res.status(statusCode).json({
       success: true,
-      message: message,
-      data: data
+      message,
+      data
     });
+
   } catch (err) {
     return res.status(500).json({
       success: false,
@@ -65,13 +66,13 @@ export async function listSentMeetingRequests(req: Request, res: Response) {
         return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });
       parsedLimit = Number(limit);
       if (!Number.isSafeInteger(parsedLimit) || parsedLimit <= 0 || parsedLimit > 100)
-        return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });   
+        return res.status(400).json({ success: false, message: "Valor de limite de paginacion invalido" });
     }
-    
+
     const { result, statusCode, message, data } = await MeetingReqService.
       listSentMeetingRequests(validatedUserId, actionType, status, parsedPage, parsedLimit);
     if (!result) return res.status(statusCode).json({ success: false, message: message });
-    
+
     return res.status(200).json({ success: true, message: message, data: data });
   } catch (err) {
     return res.status(500).json({
@@ -116,6 +117,35 @@ export async function cancelMeetingRequest(req: Request, res: Response) {
     return res.status(statusCode).json({
       success: false,
       message: (statusCode === 500) ? "Error interno del servidor" : (err as Error).message
+    });
+  }
+}
+
+export async function decideMeetingRequest(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const requestId = MeetingReqValidation.validateMeetingRequestId(req.params.requestId);
+    const decisionInfo = req.body as MeetingReqTypes.MeetingRequestDecision;
+
+    const decisionResult = await MeetingReqService.decideMeetingRequest(validatedUserId, requestId, decisionInfo);
+    if (!decisionResult.result) {
+      return res.status(decisionResult.statusCode).json({
+        success: false,
+        message: decisionResult.message
+      });
+    }
+
+    return res.status(decisionResult.statusCode).json({
+      success: true,
+      message: decisionResult.message,
+      data: decisionResult.data
+    });
+  } catch (err) {
+    const statusCode = err instanceof ServerError ? err.statusCode : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: statusCode === 500 ? "Error interno del servidor" : (err as Error).message
     });
   }
 }

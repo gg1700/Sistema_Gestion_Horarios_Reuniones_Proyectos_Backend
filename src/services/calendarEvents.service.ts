@@ -195,6 +195,14 @@ async function syncExternalChanges(
   );
 }
 
+export async function synchronizeCalendarEvents(userId: string): Promise<GoogleCalendarForUser> {
+  const calendar = await getConnectedCalendar(userId);
+
+  await syncExternalChanges(userId, calendar);
+
+  return calendar;
+}
+
 export async function listCalendarEvents(
   userId: string,
   query: CalendarEventRangeQuery,
@@ -255,8 +263,7 @@ export async function createCalendarEvent(
     try {
       await deleteGoogleEvent(userId, googleEvent.id);
     } catch {
-      // La compensación es de mejor esfuerzo.
-      // Se conserva el error original.
+      //
     }
 
     throw error;

@@ -176,8 +176,11 @@ export function meetingReqInfoToDB(payload: MeetingReqTypes.MeetingRequest) {
     requested_start_at: payload.startsAt,
     requested_end_at: payload.endsAt,
     timezone: payload.timeZone
-  }
+  };
   if (payload.message !== undefined) result.message = payload.message;
+  if (payload.guestName !== undefined) result.guest_name = payload.guestName;
+  if (payload.guestEmail !== undefined) result.guest_email = payload.guestEmail;
+
   return result;
 }
 
@@ -190,7 +193,11 @@ export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequest
     endsAt: request.requested_end_at,
     timeZone: request.timezone,
     status: request.status,
-    createdAt: request.created_at
+    createdAt: request.created_at,
+    resolvedAt: request.resolved_at ?? null,
+    ownerResponseMessage: request.owner_response_message ?? null,
+    guestName: request.guest_name ?? null,
+    guestEmail: request.guest_email ?? null
   };
 }
 
@@ -200,6 +207,7 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     handleName: request.recipient_handle,
     name: request.recipient_name,
     firstSurname: request.recipient_surname,
+    profilePicture: request.profile_picture ?? null,
     title: request.title,
     message: request.message,
     startsAt: request.requested_start_at,
@@ -208,6 +216,7 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     status: request.status,
     createdAt: request.created_at,
     resolvedAt: request.resolved_at,
-    ownerResponseMessage: request.owner_response_message
+    ownerResponseMessage: request.owner_response_message,
+    guestEmail: request.guest_email ?? null,
   }
 }

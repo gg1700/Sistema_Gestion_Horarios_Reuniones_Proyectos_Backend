@@ -432,6 +432,7 @@ function makeGoogleEventBody(input: CreateCalendarEventInput): object {
     summary: input.title,
     description: input.description,
     location: input.location,
+    visibility: input.isPublic ? "public" : "private",
     start: {
       dateTime: input.startsAt,
       timeZone: input.timeZone,
@@ -607,10 +608,6 @@ export async function deleteGoogleEvent(
   );
 }
 
-/**
- * Obtiene todos los cambios desde el syncToken anterior.
- * La primera llamada, sin syncToken, realiza una sincronización inicial.
- */
 export async function listGoogleCalendarChanges(
   userId: string,
   syncToken?: string,

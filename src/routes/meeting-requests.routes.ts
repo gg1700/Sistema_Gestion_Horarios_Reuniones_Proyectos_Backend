@@ -8,9 +8,8 @@ const router = Router();
 
 router.post(
   "/",
-  RateLimit.authRateLimit,
-  Session.verifySession,
-  Session.requireActiveProfileUser,
+  RateLimit.publicMeetingRequestRateLimit,
+  Session.optionalSession,
   Validations.createMeetingRequest,
   MeetingReqController.createMeetingRequest
 );
@@ -20,6 +19,14 @@ router.get(
   Session.verifySession,
   Session.requireActiveProfileUser,
   MeetingReqController.listSentMeetingRequests
+);
+
+router.patch(
+  "/received/:requestId/decision",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  Validations.decideMeetingRequest,
+  MeetingReqController.decideMeetingRequest
 );
 
 router.patch(

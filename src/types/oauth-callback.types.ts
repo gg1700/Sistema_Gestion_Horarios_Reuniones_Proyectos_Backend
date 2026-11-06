@@ -1,4 +1,3 @@
-
 import type { OAuthProvider } from "./oauth.types";
 
 export interface OAuthProviderProfile {

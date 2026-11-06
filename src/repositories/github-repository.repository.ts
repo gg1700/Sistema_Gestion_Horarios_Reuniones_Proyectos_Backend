@@ -10,7 +10,6 @@ export async function findGithubRepositoryAccount(userId: string): Promise<Githu
 }
 
 export async function expireGithubRepositoryAccount(userId: string, account: GithubRepositoryAccount) {
-  // No caducar un token renovado mientras la petición anterior estaba en vuelo.
   await processReturnQuery(`UPDATE public.external_account SET state = 'expired', updated_at = NOW()
     WHERE user_id = $1 AND id = $2 AND access_token = $3`, [userId, account.id, account.access_token]);
 }
@@ -39,7 +38,6 @@ async function upsertSnapshot(client: PoolClient, userId: string, repo: GithubRe
   [userId, repo.id, repo.name, repo.description, repo.language, repo.stars, repo.url, order]);
 }
 
-/** Reconciliar solo después de recibir TODAS las páginas correctamente. */
 export async function syncRepositorySelection(userId: string, account: GithubRepositoryAccount, available: GithubRepository[], requestedIds?: number[]) {
   return processTransaction(async client => {
     await lockAccount(client, userId, account);
@@ -58,7 +56,6 @@ export async function syncRepositorySelection(userId: string, account: GithubRep
   });
 }
 
-/** Vista pública: SQL local, sin llamadas a GitHub ni tokens en la respuesta. */
 export async function findPublicRepositories(userId: string) {
   return processReturnQuery(`SELECT r.name, r.description, r.language, r.stars, r.url, r.visible
     FROM public.repository r

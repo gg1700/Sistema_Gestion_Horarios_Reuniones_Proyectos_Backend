@@ -1,11 +1,9 @@
-/** Cliente compartido por actividad y repositorios (T-39). */
 export async function createGithubClient(accessToken: string) {
   const { Octokit } = await import("octokit");
   const client = new Octokit({
     auth: accessToken,
     userAgent: "orbitia-backend",
     request: { timeout: 8000 },
-    // No mantener una petición HTTP del usuario esperando el reinicio de cuota.
     throttle: { onRateLimit: () => false, onSecondaryRateLimit: () => false },
     retry: { enabled: false },
     log: { debug() {}, info() {}, warn() {}, error() {} },

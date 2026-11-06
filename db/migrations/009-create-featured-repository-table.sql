@@ -1,5 +1,3 @@
--- T-44: el esquema del equipo y Visibilidad llaman a esta copia "repository".
--- No crear una segunda tabla featured_repository para los mismos datos.
 CREATE TABLE public.repository (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES public."user"(id) ON DELETE CASCADE,

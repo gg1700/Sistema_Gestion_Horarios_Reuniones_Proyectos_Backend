@@ -26,7 +26,7 @@ function buildPublicCalendarLink(
     handleName,
     active,
     url: baseUrl.toString(),
-    publicApiPath: `/api/v1/public/calendars/${handle}`,
+    publicApiPath: `/api/v1/public/calendars/${handle}/availability`,
   };
 }
 

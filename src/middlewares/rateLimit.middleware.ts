@@ -1,5 +1,6 @@
+
 import { Request, Response } from "express";
-import { rateLimit } from "express-rate-limit";
+import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { env } from "../config/env.config";
 
 const fifteenMinutes = 15 * 60 * 1000;
@@ -18,6 +19,16 @@ function createRateLimit(maximumRequests: number) {
     standardHeaders: "draft-8",
     legacyHeaders: false,
     handler: sendLimitExceeded,
+
+    keyGenerator: (req: Request) => {
+      const clientIp =
+        req.ip ??
+        req.socket?.remoteAddress ??
+        "127.0.0.1";
+
+      return ipKeyGenerator(clientIp);
+    },
+
     skip: () => env.NODE_ENV === "test",
   });
 }

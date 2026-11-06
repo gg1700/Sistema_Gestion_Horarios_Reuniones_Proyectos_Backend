@@ -273,6 +273,13 @@ function parseGoogleDateTime(value: string): string | null {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 }
 
+function hasExplicitGoogleEventDate(value?: GoogleEventDate): boolean {
+  if (value?.dateTime !== undefined) {
+    return typeof value.dateTime === "string" && /(?:Z|[+-]\d{2}:\d{2})$/i.test(value.dateTime);
+  }
+  return typeof value?.date === "string";
+}
+
 function allDayToISO(date: string, timeZone: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !isValidTimeZone(timeZone)) {
     return null;
@@ -441,6 +448,7 @@ export async function listGoogleEvents(
   from: string,
   to: string,
   limit = 50,
+  { requireComplete = false }: { requireComplete?: boolean } = {},
 ): Promise<GoogleCalendarEvent[]> {
   const calendar = await getSelectedCalendar(userId);
   const accessToken = await getValidGoogleAccessToken(userId);
@@ -473,16 +481,37 @@ export async function listGoogleEvents(
     }
 
     for (const item of response.items) {
+      if (requireComplete) {
+        if (!item || typeof item.id !== "string" || !item.id.trim()) {
+          throw new GoogleCalendarClientError("google_invalid_response", 502);
+        }
+        if (item.status === "cancelled") continue;
+        if (
+          !hasExplicitGoogleEventDate(item.start) || !hasExplicitGoogleEventDate(item.end) ||
+          (item.status !== undefined && item.status !== "confirmed" && item.status !== "tentative") ||
+          (item.updated !== undefined && (typeof item.updated !== "string" || !parseGoogleDateTime(item.updated)))
+        ) {
+          throw new GoogleCalendarClientError("google_invalid_response", 502);
+        }
+      }
       const event = normalizeGoogleEvent(
         item,
         calendar.timeZone ?? "UTC",
       );
 
+      if (requireComplete && !event) {
+        throw new GoogleCalendarClientError("google_invalid_response", 502);
+      }
       if (event) events.push(event);
       if (events.length >= limit) break;
     }
 
     pageToken = response.nextPageToken;
+    if (requireComplete && (
+      events.length >= limit || (pageToken !== undefined && typeof pageToken !== "string")
+    )) {
+      throw new GoogleCalendarClientError("google_invalid_response", 502);
+    }
 
     if (!pageToken || events.length >= limit) {
       return events;

@@ -95,6 +95,7 @@ export interface ListedRequestsRows {
   recipient_handle: string | null;
   recipient_name: string;
   recipient_surname: string;
+  profile_picture: string | null;
   title: string;
   message?: string | null;
   requested_start_at: Date;

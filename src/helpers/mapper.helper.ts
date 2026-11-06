@@ -207,6 +207,7 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     handleName: request.recipient_handle,
     name: request.recipient_name,
     firstSurname: request.recipient_surname,
+    profilePicture: request.profile_picture ?? null,
     title: request.title,
     message: request.message,
     startsAt: request.requested_start_at,
@@ -216,6 +217,6 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     createdAt: request.created_at,
     resolvedAt: request.resolved_at,
     ownerResponseMessage: request.owner_response_message,
-    guestEmail: request.guest_email ?? null
+    guestEmail: request.guest_email ?? null,
   }
 }

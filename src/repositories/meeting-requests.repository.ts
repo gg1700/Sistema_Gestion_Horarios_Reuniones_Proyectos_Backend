@@ -134,6 +134,7 @@ export async function listRequests(
   const counterpartHandle = (actionType === "sent") ? "recipient.handle_name" : "requester.handle_name";
   const counterpartName = (actionType === "sent") ? "recipient.name" : "COALESCE(requester.name, mr.guest_name)";
   const counterpartSurname = (actionType === "sent") ? "recipient.first_surname" : "COALESCE(requester.first_surname, '')";
+  const counterpartProfilePicture = (actionType === "sent") ? "recipient.profile_picture" : "requester.profile_picture";
   const guestEmail = (actionType === "received") ? "mr.guest_email" : "NULL::varchar";
   const limitValue = (limit !== undefined) ? limit : 20;
   const offsetValue = (page !== undefined) ? (page - 1) * limitValue : 0;
@@ -148,6 +149,7 @@ export async function listRequests(
     ${counterpartHandle} AS recipient_handle,
     ${counterpartName} AS recipient_name,
     ${counterpartSurname} AS recipient_surname,
+    ${counterpartProfilePicture} AS profile_picture,
     ${guestEmail} AS guest_email
     FROM "meeting_request" mr
     LEFT JOIN "user" requester ON requester.id = mr.requester_user_id

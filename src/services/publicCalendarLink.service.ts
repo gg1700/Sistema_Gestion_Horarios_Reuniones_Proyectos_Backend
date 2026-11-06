@@ -18,7 +18,7 @@ function buildPublicCalendarLink(
     throw new Error("Falta configurar PUBLIC_CALENDAR_BASE_URL");
   }
   const baseUrl = new URL(base);
-  baseUrl.pathname = `${baseUrl.pathname.replace(/\/+$/, "")}/${handle}`;
+  baseUrl.pathname = `/${handle}/disponibilidad`;
   baseUrl.search = "";
   baseUrl.hash = "";
 

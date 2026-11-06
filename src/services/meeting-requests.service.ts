@@ -13,7 +13,7 @@ import type { UpsertCalendarEventMirrorInput } from "../repositories/calendarEve
 import { synchronizeCalendarEvents } from "./calendarEvents.service";
 
 export async function createMeetingRequest(
-  userId: string | null, 
+  userId: string | null,
   meetingReqInfo: MeetingReqTypes.MeetingRequest) {
   try {
     if (userId !== null) {
@@ -417,11 +417,13 @@ export async function decideMeetingRequest(
         if (!updatedRequest || updatedRequest.length === 0)
           return { result: false, statusCode: 409, message: "No se pudo rechazar la solicitud" };
 
-        const notification = await MeetingReqRepo.
-          createDecisionNotification(request.requester_user_id, userId, requestId,
-            MeetingReqTypes.MeetingRequestStatus.REJECTED, client);
-        if (!notification || notification.length === 0)
-          throw new ServerError("Error al crear la notificacion de rechazo");
+        if (request.requester_user_id !== null) {
+          const notification = await MeetingReqRepo.
+            createDecisionNotification(request.requester_user_id, userId, requestId,
+              MeetingReqTypes.MeetingRequestStatus.REJECTED, client,);
+          if (!notification || notification.length === 0)
+            throw new ServerError("Error al crear la notificacion de rechazo");
+        }
 
         const formatedData = Mapper.meetingRequestToResponse(updatedRequest[0]);
         return {
@@ -499,17 +501,20 @@ export async function decideMeetingRequest(
           providerUpdatedAt: googleEvent.providerUpdatedAt
         }
         const calendarEventMirror = await upsertCalendarEventMirror(info, client);
+
         const updatedRequest = await MeetingReqRepo.
           updateMeetingRequestDecision(requestId, userId, MeetingReqTypes.MeetingRequestStatus.ACCEPTED,
             decisionInfo.responseMessage ?? null, calendarEventMirror.id, client);
         if (!updatedRequest || updatedRequest.length === 0)
           throw new ConflictError("No se pudo registrar la aceptacion de la solicitud");
 
-        const notification = await MeetingReqRepo.
-          createDecisionNotification(request.requester_user_id, userId, requestId,
-            MeetingReqTypes.MeetingRequestStatus.ACCEPTED, client);
-        if (!notification || notification.length === 0)
-          throw new ServerError("Error al crear la notificacion de aceptacion");
+        if (request.requester_user_id !== null) {
+          const notification = await MeetingReqRepo.
+            createDecisionNotification(request.requester_user_id, userId, requestId,
+              MeetingReqTypes.MeetingRequestStatus.ACCEPTED, client);
+          if (!notification || notification.length === 0)
+            throw new ServerError("Error al crear la notificacion de aceptacion");
+        }
 
         const formatedData = Mapper.meetingRequestToResponse(updatedRequest[0]);
         return {

@@ -1,0 +1,210 @@
+{
+  "info": {
+    "name": "Orbitia · T-43/44/45 repositorios",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Pruebas manuales locales. Completar IDs de GET. Usar cookie session de Postman o Bearer de pruebas; no versionar credenciales. El PUT no publica. La publicación y activación del enlace son explícitas."
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{sessionToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "sessionToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "repo1Id",
+      "value": "123",
+      "type": "string"
+    },
+    {
+      "key": "repo2Id",
+      "value": "456",
+      "type": "string"
+    },
+    {
+      "key": "selectionId",
+      "value": "UUID-devuelto-por-GET",
+      "type": "string"
+    },
+    {
+      "key": "publicHandle",
+      "value": "tu-identificador",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Perfil del titular",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/profile"
+      }
+    },
+    {
+      "name": "Listar disponibles y seleccionados",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/integrations/github/repositories"
+      }
+    },
+    {
+      "name": "Seleccionar y ordenar",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/integrations/github/repositories/selected",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"repositoryIds\":[{{repo2Id}},{{repo1Id}}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Rechazar IDs repetidos (422)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/integrations/github/repositories/selected",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"repositoryIds\":[{{repo1Id}},{{repo1Id}}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Rechazar máximo excedido (422)",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/integrations/github/repositories/selected",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"repositoryIds\":[1,2,3,4,5,6]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Publicar una selección explícitamente",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profile/visibility",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"changes\":[{\"type\":\"repository\",\"id\":\"{{selectionId}}\",\"visible\":true}]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Activar enlace público explícitamente",
+      "request": {
+        "method": "PATCH",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/profile/public-link",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"publicLinkActive\":true}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Consultar visitante sin sesión",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{baseUrl}}/api/v1/public/profiles/{{publicHandle}}",
+        "auth": {
+          "type": "noauth"
+        }
+      }
+    },
+    {
+      "name": "Limpiar selección explícitamente",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{baseUrl}}/api/v1/integrations/github/repositories/selected",
+        "body": {
+          "mode": "raw",
+          "raw": "{\"repositoryIds\":[]}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,45 @@
+# Dependencias
+node_modules/
+
+# Compilacion
+dist/
+build/
+
+# Variables de Entorno
+.env
+.env.local
+.env.*.local
+.env.test
+# Logs y Registros
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Tests
+coverage/
+
+# Cache
+.cache/
+.eslintcache
+.parcel-cache/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+
+# Typescript
+*.tsbuildinfo
+
+# Migraciones locales
+db/my_migrations/
+db/my_scripts/
+
+# No toquen ehhh
+bruno/

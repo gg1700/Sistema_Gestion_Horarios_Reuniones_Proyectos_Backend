@@ -38,7 +38,6 @@ async function upsertSnapshot(client: PoolClient, userId: string, repo: GithubRe
   [userId, repo.id, repo.name, repo.description, repo.language, repo.stars, repo.url, order]);
 }
 
-/** Reconciliar solo después de recibir TODAS las páginas correctamente. */
 export async function syncRepositorySelection(userId: string, account: GithubRepositoryAccount, available: GithubRepository[], requestedIds?: number[]) {
   return processTransaction(async client => {
     await lockAccount(client, userId, account);
@@ -57,7 +56,6 @@ export async function syncRepositorySelection(userId: string, account: GithubRep
   });
 }
 
-/** Vista pública: SQL local, sin llamadas a GitHub ni tokens en la respuesta. */
 export async function findPublicRepositories(userId: string) {
   return processReturnQuery(`SELECT r.name, r.description, r.language, r.stars, r.url, r.visible
     FROM public.repository r

@@ -133,7 +133,7 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       signed: true,
       httpOnly: true,
       secure: env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "none",
       path: "/",
       maxAge: 24 * 60 * 60 * 1000,
     });

@@ -82,7 +82,15 @@ export function validateUpdateMeetingRequest(payload: unknown) {
     throw new ValidationError("Informacion a modificar no especificada");
   const processedInfo: MeetingReqTypes.UpdateMeetingRequest = {};
   if (p.title !== undefined) processedInfo.title = GeneralValidations.validateProperNoun(p.title, "Titulo de la reunion");
-  if (p.message !== undefined) processedInfo.message = validateMessage(p.message);
+  if (p.message !== undefined) {
+    if (typeof p.message !== "string")
+      throw new ValidationError("Tipo de dato invalido en el mensaje");
+    const formattedMessage = collapseSpaces(p.message);
+
+    if (formattedMessage.length > 2000 || (formattedMessage.length > 0 && formattedMessage.length < 10))
+      throw new ValidationError("El mensaje debe tener al menos 10 caracteres o quedar vacio");
+    processedInfo.message = formattedMessage;
+  }
   if ((p.startsAt !== undefined) !== (p.endsAt !== undefined))
     throw new ValidationError("Debe especificar tanto la fecha de inicio como la de finalizacion");
   if (p.startsAt !== undefined && p.endsAt !== undefined) {

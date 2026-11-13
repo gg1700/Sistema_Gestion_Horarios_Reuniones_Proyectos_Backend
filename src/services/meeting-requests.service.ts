@@ -159,58 +159,72 @@ export async function updateMeetingRequest(
       if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING)
         return { result: false, statusCode: 409, message: "Solo se pueden modificar solicitudes pendientes" };
 
-      const startTime = requestInfo.startsAt ?? request.requested_start_at;
-      const endTime = requestInfo.endsAt ?? request.requested_end_at;
+      const scheduleChanged =
+        requestInfo.startsAt !== undefined ||
+        requestInfo.endsAt !== undefined ||
+        requestInfo.timeZone !== undefined;
 
-      if (startTime.getTime() <= Date.now())
-        return { result: false, statusCode: 400, message: "La fecha de inicio debe ser futura" };
-      if (endTime <= startTime)
-        return { result: false, statusCode: 400, message: "La fecha de finalizacion debe ser posterior al inicio" };
+      if (scheduleChanged) {
+        const startTime = requestInfo.startsAt ?? request.requested_start_at;
+        const endTime = requestInfo.endsAt ?? request.requested_end_at;
+        if (startTime.getTime() <= Date.now())
+          return { result: false, statusCode: 400, message: "La fecha de inicio debe ser futura" };
+        if (endTime <= startTime)
+          return { result: false, statusCode: 400, message: "La fecha de finalizacion debe ser posterior al inicio" };
 
-      const recipientUserId = request.recipient_user_id;
-      const recipientLooked = await MeetingReqRepo.lockRecipientUser(recipientUserId, client);
-      if (!recipientLooked)
-        return { result: false, statusCode: 409, message: "El destinatario ya no esta disponible" };
+        const recipientUserId = request.recipient_user_id;
+        const recipientLooked = await MeetingReqRepo.lockRecipientUser(recipientUserId, client);
+        if (!recipientLooked)
+          return { result: false, statusCode: 409, message: "El destinatario ya no esta disponible" };
 
-      const publicCalendarFound = await MeetingReqRepo.hasPublicCalendarActiveWithClient(recipientUserId, client);
-      if (!publicCalendarFound)
-        return { result: false, statusCode: 409, message: "El calendario publico del destinatario ya no esta disponible" };
+        const publicCalendarFound = await MeetingReqRepo.hasPublicCalendarActiveWithClient(recipientUserId, client);
+        if (!publicCalendarFound)
+          return { result: false, statusCode: 409, message: "El calendario publico del destinatario ya no esta disponible" };
 
-      const recipientTimezoneFound = await MeetingReqRepo.findRecipientTimezoneWithClient(recipientUserId, client);
+        const recipientTimezoneFound = await MeetingReqRepo.findRecipientTimezoneWithClient(recipientUserId, client);
+        const recipientTimezone = (!recipientTimezoneFound || recipientTimezoneFound.length === 0)
+          ? "UTC"
+          : recipientTimezoneFound[0].timezone;
 
-      const recipientTimezone = (!recipientTimezoneFound || recipientTimezoneFound.length === 0)
-        ? "UTC"
-        : recipientTimezoneFound[0].timezone;
+        const startDate = DateUtils.getLocalDate(startTime, recipientTimezone);
+        const endDate = DateUtils.getLocalDate(endTime, recipientTimezone);
+        const startDay = DateUtils.getLocalWeekDay(startTime, recipientTimezone);
+        const endDay = DateUtils.getLocalWeekDay(endTime, recipientTimezone);
+        const startHour = DateUtils.getLocalTime(startTime, recipientTimezone);
+        const endHour = DateUtils.getLocalTime(endTime, recipientTimezone);
 
-      const startDate = DateUtils.getLocalDate(startTime, recipientTimezone);
-      const endDate = DateUtils.getLocalDate(endTime, recipientTimezone);
-      const startDay = DateUtils.getLocalWeekDay(startTime, recipientTimezone);
-      const endDay = DateUtils.getLocalWeekDay(endTime, recipientTimezone);
-      const startHour = DateUtils.getLocalTime(startTime, recipientTimezone);
-      const endHour = DateUtils.getLocalTime(endTime, recipientTimezone);
+        if (startDay !== endDay || startDate !== endDate)
+          return { result: false, statusCode: 400, message: "No es posible solicitar una reunion que dure mas de un dia" };
 
-      if (startDay !== endDay || startDate !== endDate)
-        return { result: false, statusCode: 400, message: "No es posible solicitar una reunion que dure mas de un dia" };
+        const availableSchedules = await MeetingReqRepo.findAvailableSchedules(
+          recipientUserId, startDay, startHour, endHour, client);
+        if (!availableSchedules || availableSchedules.length === 0) {
+          return {
+            result: false,
+            statusCode: 409,
+            message: "El horario solicitado no coincide con la disponibilidad del destinatario"
+          };
+        }
 
-      const availableSchedules = await MeetingReqRepo.
-        findAvailableSchedules(recipientUserId, startDay, startHour, endHour, client);
-      if (!availableSchedules || availableSchedules.length === 0) {
-        return {
-          result: false,
-          statusCode: 409,
-          message: "El horario solicitado no coincide con la disponibilidad del destinatario"
-        };
+        const scheduledActivities = await MeetingReqRepo.findCalendarSchedules(
+          recipientUserId, startTime, endTime, client);
+        if (scheduledActivities.length > 0) {
+          return {
+            result: false,
+            statusCode: 409,
+            message: "El horario solicitado esta ocupado por otra actividad"
+          };
+        }
+
+        const pendingRequests = await MeetingReqRepo.findOtherPendingRequests(
+          recipientUserId, requestId, startTime, endTime, client);
+        if (pendingRequests.length > 0)
+          return {
+            result: false,
+            statusCode: 409,
+            message: "Ya existen solicitudes pendientes para ese horario"
+          };
       }
-
-      const scheduledActivities = await MeetingReqRepo.findCalendarSchedules(recipientUserId, startTime, endTime, client);
-      if (scheduledActivities.length > 0) {
-        return { result: false, statusCode: 409, message: "El horario solicitado esta ocupado por otra actividad" };
-      }
-
-      const pendingRequests = await MeetingReqRepo.
-        findOtherPendingRequests(recipientUserId, requestId, startTime, endTime, client);
-      if (pendingRequests.length > 0)
-        return { result: false, statusCode: 409, message: "Ya existen solicitudes pendientes para ese horario" };
 
       const requestInfoDB: MeetingReqTypes.UpdateMeetingRequestDB = {};
       if (requestInfo.title !== undefined) requestInfoDB.title = requestInfo.title;

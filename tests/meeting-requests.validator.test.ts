@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   validateCancelBody,
   validateDecisionBody,
+  validateMeetingReqInfo,
   validateProposalResponseBody,
   validateRescheduleBody,
 } from "../src/validators/meeting-requests.validator";
@@ -67,5 +68,24 @@ describe("Validacion de reprogramacion", () => {
     expect(validateProposalResponseBody({
       decision: "counter", startsAt: future.toISOString(), endsAt: futureEnd.toISOString(), timeZone: "America/Lima",
     })).toMatchObject({ decision: "counter", timeZone: "America/Lima" });
+  });
+});
+
+describe("Titulo de la solicitud", () => {
+  const base = {
+    recipientHandle: "mateo-merino",
+    startsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
+    endsAt: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000 + 30 * 60 * 1000).toISOString(),
+    timeZone: "America/La_Paz",
+  };
+
+  it("conserva numeros, siglas y signos del titulo", () => {
+    expect(validateMeetingReqInfo({ ...base, title: "  sprint 3:   revisión de la API (E2E) " }).title)
+      .toBe("Sprint 3: revisión de la API (E2E)");
+  });
+
+  it("quita caracteres peligrosos y rechaza titulos vacios", () => {
+    expect(validateMeetingReqInfo({ ...base, title: "Demo <script>" }).title).toBe("Demo script");
+    expect(() => validateMeetingReqInfo({ ...base, title: "   " })).toThrow();
   });
 });

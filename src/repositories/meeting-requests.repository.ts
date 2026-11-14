@@ -52,9 +52,11 @@ export async function findCalendarSchedules(recipientUserId: string, startAt: Da
 
 export async function findPendingRequests(recipientUserId: string, startAt: Date, endsAt: Date, client: PoolClient) {
   const query = `SELECT id, requested_start_at, requested_end_at FROM "meeting_request"
-    WHERE recipient_user_id = $1 AND requested_start_at < $3
-    AND requested_end_at > $2 AND status = $4`;
-  const values = [recipientUserId, startAt, endsAt, MeetingReqTypes.MeetingRequestStatus.PENDING];
+    WHERE recipient_user_id = $1 AND (
+      (status = $4 AND requested_start_at < $3 AND requested_end_at > $2)
+      OR (status = $5 AND proposed_start_at < $3 AND proposed_end_at > $2))`;
+  const values = [recipientUserId, startAt, endsAt, MeetingReqTypes.MeetingRequestStatus.PENDING,
+    MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED];
   const pendingRequests = await client.query(query, values);
   return pendingRequests.rows;
 }
@@ -147,6 +149,7 @@ export async function listRequests(
   const query = `SELECT mr.id, mr.title, mr.message, mr.requested_start_at, mr.requested_end_at,
     mr.timezone, mr.status, mr.created_at, mr.resolved_at, mr.owner_response_message,
     mr.meet_url, mr.cancellation_reason,
+    mr.proposed_start_at, mr.proposed_end_at, mr.proposal_message,
     ${counterpartHandle} AS recipient_handle,
     ${counterpartName} AS recipient_name,
     ${counterpartSurname} AS recipient_surname,
@@ -164,7 +167,8 @@ export async function listRequests(
 
 export async function findRequestForRequester(requestId: string, userId: string, client: PoolClient) {
   const query = `SELECT id, requester_user_id, recipient_user_id,
-    requested_start_at, requested_end_at, timezone, title, message, status
+    requested_start_at, requested_end_at, timezone, title, message, status,
+    proposed_start_at, proposed_end_at, proposal_message
     FROM "meeting_request"
     WHERE id = $1 AND requester_user_id = $2
     FOR UPDATE`;
@@ -197,14 +201,16 @@ export async function findOtherPendingRequests(
   client: PoolClient) {
   const query = `SELECT id, requested_start_at, requested_end_at
     FROM "meeting_request"
-    WHERE recipient_user_id = $1 AND id <> $2 AND requested_start_at < $4
-    AND requested_end_at > $3 AND status = $5`;
+    WHERE recipient_user_id = $1 AND id <> $2 AND (
+      (status = $5 AND requested_start_at < $4 AND requested_end_at > $3)
+      OR (status = $6 AND proposed_start_at < $4 AND proposed_end_at > $3))`;
   const values = [
     recipientUserId,
     requestId,
     startAt,
     endsAt,
-    MeetingReqTypes.MeetingRequestStatus.PENDING
+    MeetingReqTypes.MeetingRequestStatus.PENDING,
+    MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED
   ];
   const pendingRequests = await client.query(query, values);
   return pendingRequests.rows;
@@ -275,10 +281,11 @@ export async function cancelPendingRequest(
   reason: string,
   client: PoolClient) {
   const query = `UPDATE "meeting_request"
-    SET status = $3, cancellation_reason = $5, resolved_at = NOW(), updated_at = NOW()
+    SET status = $3, cancellation_reason = $5, resolved_at = NOW(), updated_at = NOW(),
+    proposed_start_at = NULL, proposed_end_at = NULL, proposal_message = NULL, proposed_at = NULL
     WHERE id = $1
     AND requester_user_id = $2
-    AND status = $4
+    AND status IN ($4, $6)
     RETURNING
     id,
     title,
@@ -296,7 +303,8 @@ export async function cancelPendingRequest(
     userId,
     MeetingReqTypes.MeetingRequestStatus.CANCELLED,
     MeetingReqTypes.MeetingRequestStatus.PENDING,
-    reason
+    reason,
+    MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED
   ];
   const cancelledRequest = await client.query(query, values);
   return cancelledRequest.rows;
@@ -438,4 +446,114 @@ export async function findRequesterContact(requestId: string, client: PoolClient
     WHERE mr.id = $1`;
   const requester = await client.query(query, [requestId]);
   return requester.rows as MeetingReqTypes.RequesterContactRow[];
+}
+
+const requestColumns = `id, title, message, requested_start_at, requested_end_at, timezone, status,
+  created_at, resolved_at, owner_response_message, guest_name, guest_email, meet_url,
+  cancellation_reason, proposed_start_at, proposed_end_at, proposal_message`;
+
+/** El anfitrion propone otro horario: la solicitud queda a la espera de la respuesta del solicitante. */
+export async function proposeReschedule(
+  requestId: string,
+  recipientUserId: string,
+  startsAt: Date,
+  endsAt: Date,
+  message: string | null,
+  client: PoolClient) {
+  const query = `UPDATE "meeting_request"
+    SET status = $5, proposed_start_at = $3, proposed_end_at = $4, proposal_message = $6,
+    proposed_at = NOW(), updated_at = NOW()
+    WHERE id = $1 AND recipient_user_id = $2 AND status = $7
+    RETURNING ${requestColumns}`;
+  const values = [requestId, recipientUserId, startsAt, endsAt,
+    MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED, message,
+    MeetingReqTypes.MeetingRequestStatus.PENDING];
+  const result = await client.query(query, values);
+  return result.rows;
+}
+
+/** Cambia el horario de una solicitud pendiente (usado al confirmar con otro horario a un visitante). */
+export async function moveRequestSchedule(
+  requestId: string,
+  recipientUserId: string,
+  startsAt: Date,
+  endsAt: Date,
+  client: PoolClient) {
+  const query = `UPDATE "meeting_request"
+    SET requested_start_at = $3, requested_end_at = $4, updated_at = NOW()
+    WHERE id = $1 AND recipient_user_id = $2 AND status = $5
+    RETURNING ${requestColumns}`;
+  const values = [requestId, recipientUserId, startsAt, endsAt, MeetingReqTypes.MeetingRequestStatus.PENDING];
+  const result = await client.query(query, values);
+  return result.rows;
+}
+
+/** El solicitante acepta la propuesta: el horario propuesto pasa a ser el solicitado. */
+export async function applyProposal(requestId: string, requesterUserId: string, client: PoolClient) {
+  const query = `UPDATE "meeting_request"
+    SET requested_start_at = proposed_start_at, requested_end_at = proposed_end_at, status = $3,
+    proposed_start_at = NULL, proposed_end_at = NULL, proposal_message = NULL, proposed_at = NULL,
+    updated_at = NOW()
+    WHERE id = $1 AND requester_user_id = $2 AND status = $4
+    RETURNING ${requestColumns}`;
+  const values = [requestId, requesterUserId, MeetingReqTypes.MeetingRequestStatus.PENDING,
+    MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED];
+  const result = await client.query(query, values);
+  return result.rows;
+}
+
+/** Deja la solicitud como estaba antes de aplicar la propuesta (si la confirmacion fallo). */
+export async function restoreProposal(
+  requestId: string,
+  original: { requestedStart: Date; requestedEnd: Date; proposedStart: Date; proposedEnd: Date; message: string | null },
+  client: PoolClient) {
+  const query = `UPDATE "meeting_request"
+    SET status = $2, requested_start_at = $3, requested_end_at = $4,
+    proposed_start_at = $5, proposed_end_at = $6, proposal_message = $7, proposed_at = NOW(), updated_at = NOW()
+    WHERE id = $1 AND status = $8
+    RETURNING id`;
+  const values = [requestId, MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED,
+    original.requestedStart, original.requestedEnd, original.proposedStart, original.proposedEnd,
+    original.message, MeetingReqTypes.MeetingRequestStatus.PENDING];
+  const result = await client.query(query, values);
+  return result.rows;
+}
+
+/** El solicitante responde con otro horario: la solicitud vuelve a quedar pendiente para el anfitrion. */
+export async function counterProposal(
+  requestId: string,
+  requesterUserId: string,
+  startsAt: Date,
+  endsAt: Date,
+  timeZone: string | null,
+  client: PoolClient) {
+  const query = `UPDATE "meeting_request"
+    SET requested_start_at = $3, requested_end_at = $4, timezone = COALESCE($5, timezone), status = $6,
+    proposed_start_at = NULL, proposed_end_at = NULL, proposal_message = NULL, proposed_at = NULL,
+    updated_at = NOW()
+    WHERE id = $1 AND requester_user_id = $2 AND status = $7
+    RETURNING ${requestColumns}`;
+  const values = [requestId, requesterUserId, startsAt, endsAt, timeZone,
+    MeetingReqTypes.MeetingRequestStatus.PENDING, MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED];
+  const result = await client.query(query, values);
+  return result.rows;
+}
+
+export async function createRescheduleNotification(
+  userId: string,
+  actorUserId: string,
+  requestId: string,
+  type: MeetingReqTypes.NotificationType.RESCHEDULED | MeetingReqTypes.NotificationType.RESCHEDULE_ANSWERED,
+  title: string,
+  message: string,
+  payload: Record<string, unknown>,
+  client: PoolClient) {
+  const query = `INSERT INTO "notification" (
+    user_id, actor_user_id, meeting_request_id, notification_type,
+    title, message, payload)
+    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+    RETURNING *`;
+  const values = [userId, actorUserId, requestId, type, title, message, JSON.stringify({ requestId, ...payload })];
+  const notification = await client.query(query, values);
+  return notification.rows;
 }

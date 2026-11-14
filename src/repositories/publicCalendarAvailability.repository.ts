@@ -100,7 +100,18 @@ export async function findBusyIntervals(
      WHERE recipient_user_id = $1
        AND status = 'pending'
        AND requested_start_at < $3
-       AND requested_end_at > $2`,
+       AND requested_end_at > $2
+
+     UNION ALL
+
+     SELECT
+       proposed_start_at AS starts_at,
+       proposed_end_at AS ends_at
+     FROM public.meeting_request
+     WHERE recipient_user_id = $1
+       AND status = 'reschedule_proposed'
+       AND proposed_start_at < $3
+       AND proposed_end_at > $2`,
     [userId, from, to],
   );
 

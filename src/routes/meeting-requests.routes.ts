@@ -30,6 +30,22 @@ router.patch(
 );
 
 router.patch(
+  "/received/:requestId/reschedule",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  Validations.rescheduleMeetingRequest,
+  MeetingReqController.rescheduleMeetingRequest
+);
+
+router.patch(
+  "/sent/:requestId/proposal",
+  Session.verifySession,
+  Session.requireActiveProfileUser,
+  Validations.respondToMeetingProposal,
+  MeetingReqController.respondToMeetingProposal
+);
+
+router.patch(
   "/:requestId",
   Session.verifySession,
   Session.requireActiveProfileUser,

@@ -199,7 +199,10 @@ export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequest
     guestName: request.guest_name ?? null,
     guestEmail: request.guest_email ?? null,
     meetUrl: request.meet_url ?? null,
-    cancellationReason: request.cancellation_reason ?? null
+    cancellationReason: request.cancellation_reason ?? null,
+    proposedStartsAt: request.proposed_start_at ?? null,
+    proposedEndsAt: request.proposed_end_at ?? null,
+    proposalMessage: request.proposal_message ?? null
   };
 }
 
@@ -222,5 +225,8 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     guestEmail: request.guest_email ?? null,
     meetUrl: request.meet_url ?? null,
     cancellationReason: request.cancellation_reason ?? null,
+    proposedStartsAt: request.proposed_start_at ?? null,
+    proposedEndsAt: request.proposed_end_at ?? null,
+    proposalMessage: request.proposal_message ?? null,
   }
 }

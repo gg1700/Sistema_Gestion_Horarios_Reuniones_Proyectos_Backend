@@ -152,3 +152,39 @@ export async function decideMeetingRequest(req: Request, res: Response) {
     });
   }
 }
+async function sendDecisionResult(
+  res: Response,
+  run: () => Promise<{ result: boolean; statusCode: number; message: string; data?: unknown }>) {
+  try {
+    const outcome = await run();
+    if (!outcome.result)
+      return res.status(outcome.statusCode).json({ success: false, message: outcome.message });
+    return res.status(outcome.statusCode).json({ success: true, message: outcome.message, data: outcome.data });
+  } catch (err) {
+    const statusCode = err instanceof ServerError ? err.statusCode : 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: (statusCode === 500) ? "Error interno del servidor" : (err as Error).message
+    });
+  }
+}
+
+export async function rescheduleMeetingRequest(req: Request, res: Response) {
+  return sendDecisionResult(res, async () => {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const requestId = MeetingReqValidation.validateMeetingRequestId(req.params.requestId);
+    return MeetingReqService.proposeReschedule(validatedUserId, requestId,
+      req.body as MeetingReqTypes.RescheduleProposal);
+  });
+}
+
+export async function respondToMeetingProposal(req: Request, res: Response) {
+  return sendDecisionResult(res, async () => {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const requestId = MeetingReqValidation.validateMeetingRequestId(req.params.requestId);
+    return MeetingReqService.respondToProposal(validatedUserId, requestId,
+      req.body as MeetingReqTypes.ProposalResponse);
+  });
+}

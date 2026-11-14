@@ -24,7 +24,8 @@ export enum MeetingRequestStatus {
   PENDING = "pending",
   ACCEPTED = "accepted",
   REJECTED = "rejected",
-  CANCELLED = "cancelled"
+  CANCELLED = "cancelled",
+  RESCHEDULE_PROPOSED = "reschedule_proposed"
 }
 
 export enum NotificationType {
@@ -32,7 +33,9 @@ export enum NotificationType {
   UPDATED = "meeting_request_updated",
   CANCELLED = "meeting_request_cancelled",
   ACCEPTED = "meeting_request_accepted",
-  REJECTED = "meeting_request_rejected"
+  REJECTED = "meeting_request_rejected",
+  RESCHEDULED = "meeting_request_rescheduled",
+  RESCHEDULE_ANSWERED = "meeting_request_reschedule_answered"
 }
 
 export enum CalendarEvent {
@@ -59,6 +62,9 @@ export interface MeetingRequestRow {
   guest_email: string | null;
   meet_url?: string | null;
   cancellation_reason?: string | null;
+  proposed_start_at?: Date | null;
+  proposed_end_at?: Date | null;
+  proposal_message?: string | null;
 }
 export interface MeetingRequestResponse {
   id: string;
@@ -75,6 +81,9 @@ export interface MeetingRequestResponse {
   guestEmail: string | null;
   meetUrl: string | null;
   cancellationReason: string | null;
+  proposedStartsAt: Date | null;
+  proposedEndsAt: Date | null;
+  proposalMessage: string | null;
 }
 
 export interface ListedRequestsResponse {
@@ -94,6 +103,9 @@ export interface ListedRequestsResponse {
   guestEmail: string | null;
   meetUrl: string | null;
   cancellationReason: string | null;
+  proposedStartsAt: Date | null;
+  proposedEndsAt: Date | null;
+  proposalMessage: string | null;
 }
 
 export interface ListedRequestsRows {
@@ -114,6 +126,9 @@ export interface ListedRequestsRows {
   guest_email: string | null;
   meet_url?: string | null;
   cancellation_reason?: string | null;
+  proposed_start_at?: Date | null;
+  proposed_end_at?: Date | null;
+  proposal_message?: string | null;
 }
 
 export interface UpdateMeetingRequest {
@@ -139,6 +154,25 @@ export interface MeetingRequestDecision {
   responseMessage?: string;
 }
 
+export interface RescheduleProposal {
+  startsAt: Date;
+  endsAt: Date;
+  message?: string;
+}
+
+export enum ProposalAnswer {
+  ACCEPTED = "accepted",
+  COUNTER = "counter"
+}
+
+export interface ProposalResponse {
+  decision: ProposalAnswer;
+  startsAt?: Date;
+  endsAt?: Date;
+  timeZone?: string;
+  message?: string;
+}
+
 export interface CancelMeetingRequest {
   reason: string;
 }
@@ -155,6 +189,9 @@ export interface MeetingRequestDecisionRow {
   status: MeetingRequestStatus;
   guest_name?: string | null;
   guest_email?: string | null;
+  proposed_start_at?: Date | null;
+  proposed_end_at?: Date | null;
+  proposal_message?: string | null;
 }
 
 export interface RequesterContactRow {

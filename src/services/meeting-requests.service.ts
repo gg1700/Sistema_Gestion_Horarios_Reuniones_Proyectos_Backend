@@ -273,7 +273,8 @@ export async function cancelMeetingRequest(userId: string, requestId: string, re
         return { result: false, statusCode: 404, message: "Solicitud de reunion no encontrada" };
 
       const request = requestFound[0];
-      if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING)
+      if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING &&
+        request.status !== MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED)
         return { result: false, statusCode: 409, message: "Solo se pueden cancelar solicitudes pendientes" };
 
       const cancelledRequest = await MeetingReqRepo.cancelPendingRequest(requestId, userId, reason, client);
@@ -336,7 +337,20 @@ type DecisionPreparation =
 async function ensureDecisionAvailability(
   request: MeetingReqTypes.MeetingRequestDecisionRow,
   client: PoolClient) {
-  const recipientUserId = request.recipient_user_id;
+  return ensureScheduleAvailable(request.recipient_user_id, request.id,
+    request.requested_start_at, request.requested_end_at, client);
+}
+
+/**
+ * Comprueba que el intervalo este dentro de la disponibilidad del anfitrion y no choque con
+ * su agenda ni con otras solicitudes pendientes o propuestas. Devuelve la zona del anfitrion.
+ */
+async function ensureScheduleAvailable(
+  recipientUserId: string,
+  requestId: string,
+  startTime: Date,
+  endTime: Date,
+  client: PoolClient) {
   const recipientLocked = await MeetingReqRepo.lockRecipientUser(recipientUserId, client);
   if (!recipientLocked)
     throw new ConflictError("El destinatario ya no esta disponible");
@@ -350,8 +364,6 @@ async function ensureDecisionAvailability(
   const recipientTimezone = (!recipientTimezoneFound || recipientTimezoneFound.length === 0)
     ? "UTC"
     : recipientTimezoneFound[0].timezone;
-  const startTime = request.requested_start_at;
-  const endTime = request.requested_end_at;
 
   if (startTime.getTime() <= Date.now())
     throw new ConflictError("El horario solicitado ya no se encuentra disponible");
@@ -378,7 +390,7 @@ async function ensureDecisionAvailability(
     throw new ConflictError("El horario solicitado ya esta ocupado por otra actividad");
 
   const pendingRequests = await MeetingReqRepo.
-    findOtherPendingRequests(recipientUserId, request.id, startTime, endTime, client);
+    findOtherPendingRequests(recipientUserId, requestId, startTime, endTime, client);
   if (pendingRequests.length > 0)
     throw new ConflictError("Ya existen otras solicitudes pendientes para ese horario");
 
@@ -638,5 +650,216 @@ export async function decideMeetingRequest(
       return { result: false, statusCode: err.statusCode, message: err.message };
 
     return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
+  }
+}
+function formatForNotification(date: Date, timeZone: string) {
+  try {
+    return new Intl.DateTimeFormat("es-BO", {
+      timeZone, weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit", hourCycle: "h23"
+    }).format(date);
+  } catch {
+    return date.toISOString();
+  }
+}
+
+function serviceFailure(err: unknown): DecisionFailure {
+  if (err instanceof ServerError)
+    return { result: false, statusCode: err.statusCode, message: err.message };
+  return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
+}
+
+type ProposalPreparation =
+  | DecisionFailure
+  | { result: true; guest: false; data: ReturnType<typeof Mapper.meetingRequestToResponse> }
+  | { result: true; guest: true; originalStart: Date; originalEnd: Date };
+
+/**
+ * El anfitrion propone otro horario en lugar de rechazar.
+ * - Solicitante con cuenta: queda en "reschedule_proposed" hasta que responda.
+ * - Visitante sin cuenta: la reunion se confirma directamente en el nuevo horario y Google
+ *   Calendar le envia la invitacion por correo (puede aceptarla o rechazarla desde ahi).
+ */
+export async function proposeReschedule(
+  userId: string,
+  requestId: string,
+  proposal: MeetingReqTypes.RescheduleProposal): Promise<DecisionResult> {
+  try {
+    const preparation = await processTransaction<ProposalPreparation>(async function (client: PoolClient) {
+      const requestFound = await MeetingReqRepo.findRequestForRecipient(requestId, userId, client);
+      if (!requestFound || requestFound.length === 0)
+        return { result: false, statusCode: 404, message: "Solicitud de reunion no encontrada" };
+
+      const request = requestFound[0];
+      if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING)
+        return { result: false, statusCode: 409, message: "Solo se puede proponer otro horario en solicitudes pendientes" };
+      if (request.requested_start_at.getTime() === proposal.startsAt.getTime() &&
+        request.requested_end_at.getTime() === proposal.endsAt.getTime())
+        return { result: false, statusCode: 400, message: "El nuevo horario debe ser distinto al solicitado" };
+
+      await ensureScheduleAvailable(userId, requestId, proposal.startsAt, proposal.endsAt, client);
+
+      if (request.requester_user_id === null) {
+        const moved = await MeetingReqRepo.moveRequestSchedule(requestId, userId, proposal.startsAt, proposal.endsAt, client);
+        if (!moved || moved.length === 0)
+          return { result: false, statusCode: 409, message: "No se pudo cambiar el horario de la solicitud" };
+        return {
+          result: true,
+          guest: true,
+          originalStart: request.requested_start_at,
+          originalEnd: request.requested_end_at
+        };
+      }
+
+      const updated = await MeetingReqRepo.proposeReschedule(requestId, userId,
+        proposal.startsAt, proposal.endsAt, proposal.message ?? null, client);
+      if (!updated || updated.length === 0)
+        return { result: false, statusCode: 409, message: "No se pudo proponer el nuevo horario" };
+
+      const when = formatForNotification(proposal.startsAt, request.timezone);
+      const notification = await MeetingReqRepo.createRescheduleNotification(
+        request.requester_user_id, userId, requestId, MeetingReqTypes.NotificationType.RESCHEDULED,
+        "Nuevo horario propuesto",
+        `Te proponen reprogramar "${request.title}" para el ${when}.` +
+        (proposal.message ? ` Mensaje: ${proposal.message}` : ""),
+        { action: "reschedule_proposed", startsAt: proposal.startsAt, endsAt: proposal.endsAt, message: proposal.message ?? null },
+        client);
+      if (!notification || notification.length === 0)
+        throw new ServerError("Error al crear la notificacion de reprogramacion");
+
+      return { result: true, guest: false, data: Mapper.meetingRequestToResponse(updated[0]) };
+    });
+
+    if (!preparation.result) return preparation;
+    if (!preparation.guest) {
+      return {
+        result: true,
+        statusCode: 200,
+        message: "Nuevo horario propuesto; el solicitante debe confirmarlo",
+        data: preparation.data
+      };
+    }
+
+    const accepted = await decideMeetingRequest(userId, requestId, {
+      decision: MeetingReqTypes.MeetingRequestStatus.ACCEPTED,
+      ...(proposal.message ? { responseMessage: proposal.message } : {})
+    });
+    if (!accepted.result) {
+      await processTransaction(async function (client: PoolClient) {
+        await MeetingReqRepo.moveRequestSchedule(requestId, userId, preparation.originalStart, preparation.originalEnd, client);
+      });
+      return accepted;
+    }
+    return {
+      ...accepted,
+      message: "Reunion confirmada en el nuevo horario; el visitante recibira la invitacion de Google Calendar por correo"
+    };
+  } catch (err) {
+    return serviceFailure(err);
+  }
+}
+
+/** El solicitante responde a la propuesta del anfitrion: la acepta o propone otro horario. */
+export async function respondToProposal(
+  userId: string,
+  requestId: string,
+  response: MeetingReqTypes.ProposalResponse): Promise<DecisionResult> {
+  try {
+    if (response.decision === MeetingReqTypes.ProposalAnswer.COUNTER) {
+      return await processTransaction<DecisionResult>(async function (client: PoolClient) {
+        const requestFound = await MeetingReqRepo.findRequestForRequester(requestId, userId, client);
+        if (!requestFound || requestFound.length === 0)
+          return { result: false, statusCode: 404, message: "Solicitud de reunion no encontrada" };
+        const request = requestFound[0];
+        if (request.status !== MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED)
+          return { result: false, statusCode: 409, message: "La solicitud no tiene una propuesta de horario pendiente" };
+
+        const startsAt = response.startsAt as Date;
+        const endsAt = response.endsAt as Date;
+        await ensureScheduleAvailable(request.recipient_user_id, requestId, startsAt, endsAt, client);
+
+        const updated = await MeetingReqRepo.counterProposal(requestId, userId, startsAt, endsAt,
+          response.timeZone ?? null, client);
+        if (!updated || updated.length === 0)
+          return { result: false, statusCode: 409, message: "No se pudo proponer el nuevo horario" };
+
+        const when = formatForNotification(startsAt, request.timezone);
+        const notification = await MeetingReqRepo.createRescheduleNotification(
+          request.recipient_user_id, userId, requestId, MeetingReqTypes.NotificationType.RESCHEDULE_ANSWERED,
+          "El solicitante propuso otro horario",
+          `Para "${request.title}" el solicitante propone el ${when}.` +
+          (response.message ? ` Mensaje: ${response.message}` : ""),
+          { action: "counter_proposed", startsAt, endsAt, message: response.message ?? null },
+          client);
+        if (!notification || notification.length === 0)
+          throw new ServerError("Error al crear la notificacion de reprogramacion");
+
+        return {
+          result: true,
+          statusCode: 200,
+          message: "Nuevo horario enviado; la solicitud vuelve a quedar pendiente",
+          data: Mapper.meetingRequestToResponse(updated[0])
+        };
+      });
+    }
+
+    const applied = await processTransaction<
+      DecisionFailure | { result: true; recipientUserId: string; title: string; original: {
+        requestedStart: Date; requestedEnd: Date; proposedStart: Date; proposedEnd: Date; message: string | null;
+      } }>(async function (client: PoolClient) {
+      const requestFound = await MeetingReqRepo.findRequestForRequester(requestId, userId, client);
+      if (!requestFound || requestFound.length === 0)
+        return { result: false, statusCode: 404, message: "Solicitud de reunion no encontrada" };
+      const request = requestFound[0];
+      if (request.status !== MeetingReqTypes.MeetingRequestStatus.RESCHEDULE_PROPOSED ||
+        !request.proposed_start_at || !request.proposed_end_at)
+        return { result: false, statusCode: 409, message: "La solicitud no tiene una propuesta de horario pendiente" };
+      if (new Date(request.proposed_start_at).getTime() <= Date.now())
+        return { result: false, statusCode: 409, message: "El horario propuesto ya paso; propone otro horario" };
+
+      const updated = await MeetingReqRepo.applyProposal(requestId, userId, client);
+      if (!updated || updated.length === 0)
+        return { result: false, statusCode: 409, message: "No se pudo aceptar la propuesta" };
+
+      return {
+        result: true,
+        recipientUserId: request.recipient_user_id,
+        title: request.title,
+        original: {
+          requestedStart: request.requested_start_at,
+          requestedEnd: request.requested_end_at,
+          proposedStart: request.proposed_start_at,
+          proposedEnd: request.proposed_end_at,
+          message: request.proposal_message ?? null
+        }
+      };
+    });
+    if (!applied.result) return applied;
+
+    const accepted = await decideMeetingRequest(applied.recipientUserId, requestId, {
+      decision: MeetingReqTypes.MeetingRequestStatus.ACCEPTED
+    });
+    if (!accepted.result) {
+      await processTransaction(async function (client: PoolClient) {
+        await MeetingReqRepo.restoreProposal(requestId, applied.original, client);
+      });
+      return accepted;
+    }
+
+    try {
+      await processTransaction(async function (client: PoolClient) {
+        await MeetingReqRepo.createRescheduleNotification(
+          applied.recipientUserId, userId, requestId, MeetingReqTypes.NotificationType.RESCHEDULE_ANSWERED,
+          "Nuevo horario aceptado",
+          `El solicitante acepto el nuevo horario de "${applied.title}". La reunion ya esta en tu calendario.`,
+          { action: "proposal_accepted" },
+          client);
+      });
+    } catch {
+      // La reunion ya quedo confirmada; la notificacion al anfitrion es informativa.
+    }
+
+    return { ...accepted, message: "Nuevo horario aceptado; la reunion quedo confirmada" };
+  } catch (err) {
+    return serviceFailure(err);
   }
 }

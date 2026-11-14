@@ -55,6 +55,14 @@ export const decideMeetingRequest = validateRequestBody(
   MeetingReqValidations.validateDecisionBody
 );
 
+export const rescheduleMeetingRequest = validateRequestBody(
+  MeetingReqValidations.validateRescheduleBody
+);
+
+export const respondToMeetingProposal = validateRequestBody(
+  MeetingReqValidations.validateProposalResponseBody
+);
+
 export const cancelMeetingRequest = validateRequestBody(
   MeetingReqValidations.validateCancelBody
 );

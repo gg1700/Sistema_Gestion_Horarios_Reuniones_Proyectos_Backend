@@ -174,3 +174,63 @@ export function validateCancelBody(payload: unknown) {
   };
   return processedInfo;
 }
+function validateFutureInterval(startsAtValue: unknown, endsAtValue: unknown) {
+  const startsAt = GeneralValidations.validateDate(startsAtValue, "Hora de inicio");
+  const endsAt = GeneralValidations.validateDate(endsAtValue, "Hora de finalizacion");
+  if (startsAt.getTime() <= Date.now())
+    throw new ValidationError("La fecha de inicio debe ser futura");
+  if (endsAt <= startsAt)
+    throw new ValidationError("La fecha de finalizacion debe ser posterior al inicio");
+  return { startsAt, endsAt };
+}
+
+function validateOptionalNote(message: unknown) {
+  if (message === undefined || message === null) return undefined;
+  if (typeof message !== "string")
+    throw new ValidationError("Tipo de dato invalido en el mensaje");
+  const formattedMessage = collapseSpaces(message);
+  if (formattedMessage.length === 0) return undefined;
+  if (formattedMessage.length > 2000)
+    throw new ValidationError("El mensaje no puede superar los 2000 caracteres");
+  return formattedMessage;
+}
+
+export function validateRescheduleBody(payload: unknown) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  const allowedFields = ["startsAt", "endsAt", "message"];
+  Object.keys(p).forEach((field) => {
+    if (!allowedFields.includes(field)) throw new ValidationError(`Campo no permitido: ${field}`);
+  });
+  const processedInfo: MeetingReqTypes.RescheduleProposal = validateFutureInterval(p.startsAt, p.endsAt);
+  const message = validateOptionalNote(p.message);
+  if (message !== undefined) processedInfo.message = message;
+  return processedInfo;
+}
+
+export function validateProposalResponseBody(payload: unknown) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  const allowedFields = ["decision", "startsAt", "endsAt", "timeZone", "message"];
+  Object.keys(p).forEach((field) => {
+    if (!allowedFields.includes(field)) throw new ValidationError(`Campo no permitido: ${field}`);
+  });
+  if (p.decision !== MeetingReqTypes.ProposalAnswer.ACCEPTED && p.decision !== MeetingReqTypes.ProposalAnswer.COUNTER)
+    throw new ValidationError("La respuesta debe ser accepted o counter");
+
+  if (p.decision === MeetingReqTypes.ProposalAnswer.ACCEPTED) {
+    if (p.startsAt !== undefined || p.endsAt !== undefined || p.timeZone !== undefined)
+      throw new ValidationError("Para aceptar la propuesta no se debe enviar otro horario");
+    const processedInfo: MeetingReqTypes.ProposalResponse = { decision: MeetingReqTypes.ProposalAnswer.ACCEPTED };
+    const message = validateOptionalNote(p.message);
+    if (message !== undefined) processedInfo.message = message;
+    return processedInfo;
+  }
+
+  const processedInfo: MeetingReqTypes.ProposalResponse = {
+    decision: MeetingReqTypes.ProposalAnswer.COUNTER,
+    ...validateFutureInterval(p.startsAt, p.endsAt)
+  };
+  if (p.timeZone !== undefined) processedInfo.timeZone = validateTimezone(p.timeZone);
+  const message = validateOptionalNote(p.message);
+  if (message !== undefined) processedInfo.message = message;
+  return processedInfo;
+}

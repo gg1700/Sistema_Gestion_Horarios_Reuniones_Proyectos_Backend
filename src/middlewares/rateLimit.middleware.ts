@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { rateLimit, ipKeyGenerator } from "express-rate-limit";
 import { env } from "../config/env.config";
+import { isIP } from "node:net";
 
 const fifteenMinutes = 15 * 60 * 1000;
 
@@ -24,10 +25,14 @@ function createRateLimit(maximumRequests: number) {
         return `user:${req.user.userId}`;
       }
 
+      const forwardedIp = req.get("CF-Connecting-IP");
+
       const clientIp =
-        req.ip ??
-        req.socket?.remoteAddress ??
-        "127.0.0.1";
+        forwardedIp && isIP(forwardedIp)
+          ? forwardedIp
+          : req.ip ??
+          req.socket?.remoteAddress ??
+          "127.0.0.1";
 
       return `ip:${ipKeyGenerator(clientIp)}`;
     },

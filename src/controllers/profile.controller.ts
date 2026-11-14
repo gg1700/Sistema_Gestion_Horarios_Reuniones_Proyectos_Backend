@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import * as GeneralValidations from "../validators/general.validator";
 import * as ProfileService from "../services/profile.service";
 import * as TokenTypes from "../types/token.types";
-import { AuthenticationError } from "../helpers/errors.helper";
+import { AuthenticationError, ServerError } from "../helpers/errors.helper";
 import type { ProfileResponse } from "../types/profile-response.types";
 
 export async function getOwnProfile(req: Request, res: Response<ProfileResponse>) {
@@ -32,7 +32,7 @@ export async function modifyPersonalInfo(req: Request, res: Response) {
         message: "Infomacion a modificar no especificada",
       });
     }
-    
+
     const { result, statusCode, message } = await ProfileService.modifyPersonalInfo(validatedUserId, req.body, req.file);
     if (!result) return res.status(statusCode).json({ success: result, message: message });
     return res.status(200).json({
@@ -105,7 +105,7 @@ export async function deleteWorkExperience(req: Request, res: Response) {
     const result = await ProfileService.removeWorkExperience(validatedId, validatedUserId);
     return res.status(result.statusCode).json({ success: result.result, message: result.message });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(error instanceof ServerError ? error.statusCode : 500).json({
       success: false,
       message: (error as Error).message
     });

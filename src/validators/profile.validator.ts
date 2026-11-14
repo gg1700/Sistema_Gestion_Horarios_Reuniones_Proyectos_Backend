@@ -23,11 +23,11 @@ function validatePhone(phone: unknown) {
     throw new ValidationError("Formato de numero de telefono invalido");
   }
   const formatedCountryCode = countryCode.trim();
-  if ((formatedCountryCode.length < 1 || formatedCountryCode.length > 3) || 
+  if ((formatedCountryCode.length < 1 || formatedCountryCode.length > 3) ||
     !RegexConstants.regexCountryCode.test(formatedCountryCode)) {
     throw new ValidationError("Codigo de pais invalido");
-  } 
-  return { id: formatedId, phoneNumber: formatedPhoneNumber, countryCode: formatedCountryCode, visibility: GeneralValidations.validateVisibility(visibility) }; 
+  }
+  return { id: formatedId, phoneNumber: formatedPhoneNumber, countryCode: formatedCountryCode, visibility: GeneralValidations.validateVisibility(visibility) };
 }
 
 function validateContactEmail(contactEmail: unknown) {
@@ -40,7 +40,7 @@ function validateContactEmail(contactEmail: unknown) {
   if ((formatedEmail.length < 1 || formatedEmail.length > 200) || !RegexConstants.regexEmail.test(formatedEmail)) {
     throw new ValidationError("Formato de correo electronico invalido");
   }
-  return { id: formatedId, email: formatedEmail,  visibility: GeneralValidations.validateVisibility(visibility) };
+  return { id: formatedId, email: formatedEmail, visibility: GeneralValidations.validateVisibility(visibility) };
 }
 
 function validateAdress(add: unknown) {
@@ -193,8 +193,8 @@ function validateNewWorkExperience(value: unknown): ProfileTypes.NewWorkExperien
   const endDate = GeneralValidations.isEmptyValue(workExperience.endDate)
     ? null
     : GeneralValidations.validateCalendarDate(workExperience.endDate, "Fecha de fin");
-  if (endDate && endDate < startDate) {
-    throw new ValidationError("Experiencia laboral: la fecha de fin no puede ser anterior a la fecha de inicio");
+  if (endDate && endDate <= startDate) {
+    throw new ValidationError("Experiencia laboral: la fecha de fin debe ser posterior a la fecha de inicio");
   }
   return {
     title: GeneralValidations.validateText(workExperience.title, "Cargo", 150),

@@ -71,4 +71,17 @@ router.patch(
   ProfileController.modifyWorkExperience
 );
 
+router.post(
+  "/work-experience",
+  RateLimit.profileRateLimit,
+  Validations.createWorkExperience,
+  ProfileController.createWorkExperience
+);
+
+router.delete(
+  "/work-experience/:id",
+  RateLimit.profileRateLimit,
+  ProfileController.deleteWorkExperience
+);
+
 export default router;

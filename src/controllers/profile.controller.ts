@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import * as GeneralValidations from "../validators/general.validator";
 import * as ProfileService from "../services/profile.service";
 import * as TokenTypes from "../types/token.types";
-import { AuthenticationError } from "../helpers/errors.helper";
+import { AuthenticationError, ServerError } from "../helpers/errors.helper";
 import type { ProfileResponse } from "../types/profile-response.types";
 
 export async function getOwnProfile(req: Request, res: Response<ProfileResponse>) {
@@ -32,7 +32,7 @@ export async function modifyPersonalInfo(req: Request, res: Response) {
         message: "Infomacion a modificar no especificada",
       });
     }
-    
+
     const { result, statusCode, message } = await ProfileService.modifyPersonalInfo(validatedUserId, req.body, req.file);
     if (!result) return res.status(statusCode).json({ success: result, message: message });
     return res.status(200).json({
@@ -72,6 +72,42 @@ export async function modifyWorkExperience(req: Request, res: Response) {
     return res.status(500).json({
       success: false,
       message: `Error interno del servidor: ${(err as Error).message}`,
+    });
+  }
+}
+
+export async function createWorkExperience(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
+
+    const result = await ProfileService.createWorkExperience(validatedUserId, req.body);
+    return res.status(result.statusCode).json({
+      success: result.result,
+      message: result.message,
+      data: result.data
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: (error as Error).message
+    });
+  }
+}
+
+export async function deleteWorkExperience(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const validatedId = GeneralValidations.validateId(req.params.id);
+
+    const result = await ProfileService.removeWorkExperience(validatedId, validatedUserId);
+    return res.status(result.statusCode).json({ success: result.result, message: result.message });
+  } catch (error) {
+    return res.status(error instanceof ServerError ? error.statusCode : 500).json({
+      success: false,
+      message: (error as Error).message
     });
   }
 }

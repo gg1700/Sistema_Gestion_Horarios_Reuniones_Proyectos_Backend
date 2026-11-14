@@ -132,8 +132,7 @@ export async function modifyPersonalInfo(
 export async function modifyWorkExperience(
   id: string,
   userId: string,
-  editableWorkExperienceInfo: WorkExpTypes.EditableWorkExperience
-) {
+  editableWorkExperienceInfo: WorkExpTypes.EditableWorkExperience) {
   try {
     const userFound = await ProfileRepo.existsUser(userId);
 
@@ -184,6 +183,84 @@ export async function modifyWorkExperience(
     };
   } catch (err) {
     return { result: false, statusCode: 500, message: (err as Error).message };
+  }
+}
+
+export async function createWorkExperience(
+  userId: string,
+  experience: ProfileTypes.NewWorkExperience) {
+  try {
+    const userFound = await ProfileRepo.existsUser(userId);
+    if (!userFound)
+      return { result: false, statusCode: 404, message: "El usuario no existe" };
+
+    const experienceDB: ProfileTypes.NewWorkExperienceDB = {
+      title: experience.title,
+      description: experience.description,
+      company_name: experience.companyName,
+      start_date: experience.startDate,
+      end_date: experience.endDate,
+      visible: experience.visibility
+    };
+    const createdId = await processTransaction<string | undefined>(
+      async (client: PoolClient) => {
+        if (!(await ProfileRepo.lockActiveUser(userId, client))) {
+          throw new AuthenticationError("Sesion invalida o usuario no disponible");
+        }
+
+        const id = await ProfileRepo.insertWorkExperience(userId, experienceDB, client);
+        if (!id)
+          throw new ServerError("No se pudo registrar la experiencia laboral");
+
+        await ProfileRepo.confirmProfileUpdate(userId, client);
+        return id;
+      }
+    );
+
+    return {
+      result: true,
+      statusCode: 201,
+      message: "Experiencia laboral registrada correctamente",
+      data: { id: createdId }
+    };
+  } catch (error) {
+    return {
+      result: false,
+      statusCode: error instanceof ServerError ? error.statusCode : 500,
+      message: (error as Error).message
+    };
+  }
+}
+
+export async function removeWorkExperience(id: string, userId: string) {
+  try {
+    const deleted = await processTransaction<boolean>(
+      async (client: PoolClient) => {
+        if (!(await ProfileRepo.lockActiveUser(userId, client))) {
+          throw new AuthenticationError("Sesion invalida o usuario no disponible");
+        }
+
+        const result = await ProfileRepo.deleteWorkExperience(id, userId, client);
+        if (!result)
+          throw new NotFoundError("La experiencia laboral no existe o no pertenece al usuario");
+
+        await ProfileRepo.confirmProfileUpdate(userId, client);
+        return result;
+      }
+    );
+
+    return {
+      result: true,
+      statusCode: 200,
+      message: "Experiencia laboral eliminada correctamente",
+      data: deleted
+    };
+  } catch (error) {
+    return {
+      result: false,
+      statusCode: error instanceof ServerError ? error.statusCode : 500,
+      message: (error as Error).message
+    };
   }
 }
 

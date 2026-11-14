@@ -6,12 +6,56 @@ import { getCalendars, selectCalendar, createCalendar, getConnectionStatus, disc
 
 const router = Router();
 
-router.get("/connect", authRateLimit, connectGoogleCalendar);
-router.get("/callback", authRateLimit, googleCalendarCallback);
-router.get("/calendars", googleCalendarRateLimit, verifySession, requireActiveProfileUser, getCalendars);
-router.post("/calendars", googleCalendarRateLimit, verifySession, requireActiveProfileUser, createCalendar);
-router.put("/selected", googleCalendarRateLimit, verifySession, requireActiveProfileUser, selectCalendar);
-router.get("/status", googleCalendarRateLimit, verifySession, requireActiveProfileUser, getConnectionStatus);
-router.delete("/", googleCalendarRateLimit, verifySession, requireActiveProfileUser, disconnectCalendar);
+router.get(
+  "/connect",
+  authRateLimit,
+  connectGoogleCalendar
+);
+
+router.get(
+  "/callback",
+  authRateLimit,
+  googleCalendarCallback
+);
+
+router.get(
+  "/calendars",
+  verifySession,
+  requireActiveProfileUser,
+  googleCalendarRateLimit,
+  getCalendars
+);
+
+router.post(
+  "/calendars",
+  verifySession,
+  requireActiveProfileUser,
+  googleCalendarRateLimit,
+  createCalendar
+);
+
+router.put(
+  "/selected",
+  verifySession,
+  requireActiveProfileUser,
+  googleCalendarRateLimit,
+  selectCalendar
+);
+
+router.get(
+  "/status",
+  verifySession,
+  requireActiveProfileUser,
+  googleCalendarRateLimit,
+  getConnectionStatus
+);
+
+router.delete(
+  "/",
+  verifySession,
+  requireActiveProfileUser,
+  googleCalendarRateLimit,
+  disconnectCalendar
+);
 
 export default router;

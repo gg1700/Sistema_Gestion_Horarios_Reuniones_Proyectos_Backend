@@ -133,7 +133,9 @@ export async function oauthCallback(req: Request, res: Response): Promise<void> 
       signed: true,
       httpOnly: true,
       secure: env.NODE_ENV === "production",
-      sameSite: "none",
+      // SameSite=None solo es valido con Secure (HTTPS). En local (HTTP) el navegador
+      // descartaria la cookie y la sesion nunca se guardaria, por eso se usa "lax".
+      sameSite: env.NODE_ENV === "production" ? "none" : "lax",
       path: "/",
       maxAge: 24 * 60 * 60 * 1000,
     });

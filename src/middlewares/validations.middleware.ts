@@ -55,6 +55,10 @@ export const decideMeetingRequest = validateRequestBody(
   MeetingReqValidations.validateDecisionBody
 );
 
+export const cancelMeetingRequest = validateRequestBody(
+  MeetingReqValidations.validateCancelBody
+);
+
 export const createWorkExperience = validateRequestBody(
   ProfileValidations.validateCreateWorkExperience
 );

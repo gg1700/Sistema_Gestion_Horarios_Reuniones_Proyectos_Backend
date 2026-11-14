@@ -43,6 +43,7 @@ function toResponse(event: CalendarEventMirror): CalendarEventResponse {
     isPublic: event.isPublic,
     eventStatus: event.eventStatus,
     syncStatus: event.syncStatus,
+    meetUrl: event.meetUrl ?? null,
   };
 }
 
@@ -131,6 +132,7 @@ function mirrorData(
     eventStatus: event.eventStatus,
     syncStatus: "synced" as const,
     providerUpdatedAt: event.providerUpdatedAt,
+    meetUrl: event.meetUrl ?? null,
   };
 }
 

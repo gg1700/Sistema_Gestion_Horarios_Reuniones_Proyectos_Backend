@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { ServerError } from "../helpers/errors.helper";
 import { findGoogleCalendarForUser } from "../repositories/calendarEvents.repository";
 import {
@@ -35,6 +36,10 @@ interface GoogleEventResource {
   end?: GoogleEventDate;
   status?: GoogleEventStatus;
   updated?: string;
+  hangoutLink?: string;
+  conferenceData?: {
+    entryPoints?: { entryPointType?: string; uri?: string }[];
+  };
 }
 
 interface GoogleEventListResponse {
@@ -411,7 +416,20 @@ function normalizeGoogleEvent(
     timeZone,
     eventStatus,
     providerUpdatedAt: event.updated ?? null,
+    meetUrl: extractMeetUrl(event),
   };
+}
+
+function extractMeetUrl(event: GoogleEventResource): string | null {
+  if (typeof event.hangoutLink === "string" && event.hangoutLink.startsWith("https://")) {
+    return event.hangoutLink;
+  }
+
+  const videoEntry = event.conferenceData?.entryPoints?.find(
+    (entry) => entry.entryPointType === "video" && typeof entry.uri === "string",
+  );
+
+  return videoEntry?.uri?.startsWith("https://") ? videoEntry.uri : null;
 }
 
 function requireGoogleEvent(
@@ -429,6 +447,19 @@ function requireGoogleEvent(
 
 function makeGoogleEventBody(input: CreateCalendarEventInput): object {
   return {
+    ...(input.withMeet
+      ? {
+        conferenceData: {
+          createRequest: {
+            requestId: randomUUID(),
+            conferenceSolutionKey: { type: "hangoutsMeet" },
+          },
+        },
+      }
+      : {}),
+    ...(input.attendeeEmails?.length
+      ? { attendees: input.attendeeEmails.map((email) => ({ email })) }
+      : {}),
     summary: input.title,
     description: input.description,
     location: input.location,
@@ -538,10 +569,14 @@ export async function createGoogleEvent(
 ): Promise<GoogleCalendarEvent> {
   const calendar = await getSelectedCalendar(userId);
   const accessToken = await getValidGoogleAccessToken(userId);
+  const url = buildGoogleUrl(calendar.calendarId);
+
+  if (input.withMeet) url.searchParams.set("conferenceDataVersion", "1");
+  if (input.attendeeEmails?.length) url.searchParams.set("sendUpdates", "all");
 
   const response = await requestGoogle<GoogleEventResource>(
     accessToken,
-    buildGoogleUrl(calendar.calendarId),
+    url,
     "POST",
     makeGoogleEventBody(input),
   );

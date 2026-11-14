@@ -237,6 +237,43 @@ describe("Google Calendar client - escritura", () => {
     expect(result.id).toBe("event-123");
   });
 
+  it("solicita una reunión de Google Meet e invita a los asistentes", async () => {
+    fetchMock.mockResolvedValue(jsonResponse({
+      ...googleEvent,
+      hangoutLink: "https://meet.google.com/abc-defg-hij",
+    }, 201));
+
+    const result = await createGoogleEvent(userId, {
+      ...input,
+      withMeet: true,
+      attendeeEmails: ["invitado@example.com"],
+    });
+
+    const { url, options } = lastRequest();
+    const body = JSON.parse(String(options.body));
+
+    expect(url.searchParams.get("conferenceDataVersion")).toBe("1");
+    expect(url.searchParams.get("sendUpdates")).toBe("all");
+    expect(body.conferenceData.createRequest.conferenceSolutionKey).toEqual({ type: "hangoutsMeet" });
+    expect(body.conferenceData.createRequest.requestId).toEqual(expect.any(String));
+    expect(body.attendees).toEqual([{ email: "invitado@example.com" }]);
+    expect(result.meetUrl).toBe("https://meet.google.com/abc-defg-hij");
+  });
+
+  it("no agrega Meet ni asistentes cuando no se piden", async () => {
+    fetchMock.mockResolvedValue(jsonResponse(googleEvent, 201));
+
+    const result = await createGoogleEvent(userId, input);
+
+    const { url, options } = lastRequest();
+    const body = JSON.parse(String(options.body));
+
+    expect(url.searchParams.has("conferenceDataVersion")).toBe(false);
+    expect(body.conferenceData).toBeUndefined();
+    expect(body.attendees).toBeUndefined();
+    expect(result.meetUrl).toBeNull();
+  });
+
   it("actualiza un evento con PATCH", async () => {
     fetchMock.mockResolvedValue(
       jsonResponse({

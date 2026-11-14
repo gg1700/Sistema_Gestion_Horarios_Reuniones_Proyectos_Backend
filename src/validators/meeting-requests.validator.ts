@@ -128,6 +128,11 @@ export function validateDecisionBody(payload: unknown) {
     decision: p.decision
   };
 
+  if (p.decision === MeetingReqTypes.MeetingRequestStatus.REJECTED) {
+    processedInfo.responseMessage = validateReason(p.responseMessage, "El motivo del rechazo");
+    return processedInfo;
+  }
+
   if (p.responseMessage !== undefined) {
     if (typeof p.responseMessage !== "string")
       throw new ValidationError("Tipo de dato invalido en el mensaje de respuesta");
@@ -139,5 +144,33 @@ export function validateDecisionBody(payload: unknown) {
     processedInfo.responseMessage = formattedMessage;
   }
 
+  return processedInfo;
+}
+
+const minimumReasonLength = 5;
+const maximumReasonLength = 2000;
+
+function validateReason(reason: unknown, field: string) {
+  if (reason === undefined || reason === null)
+    throw new ValidationError(`${field} es obligatorio`);
+  if (typeof reason !== "string")
+    throw new ValidationError(`Tipo de dato invalido en ${field.toLowerCase()}`);
+
+  const formattedReason = collapseSpaces(reason);
+  if (formattedReason.length < minimumReasonLength || formattedReason.length > maximumReasonLength)
+    throw new ValidationError(`${field} debe tener entre ${minimumReasonLength} y ${maximumReasonLength} caracteres`);
+
+  return formattedReason;
+}
+
+export function validateCancelBody(payload: unknown) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+  Object.keys(p).forEach((field) => {
+    if (field !== "reason") throw new ValidationError(`Campo no permitido: ${field}`);
+  });
+
+  const processedInfo: MeetingReqTypes.CancelMeetingRequest = {
+    reason: validateReason(p.reason, "El motivo de la cancelacion")
+  };
   return processedInfo;
 }

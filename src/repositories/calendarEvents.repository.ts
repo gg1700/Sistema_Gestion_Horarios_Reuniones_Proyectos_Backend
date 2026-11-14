@@ -34,6 +34,7 @@ interface CalendarEventRow {
   sync_status: CalendarEventSyncStatus;
   provider_updated_at: Date | string | null;
   synced_at: Date | string;
+  meet_url?: string | null;
 }
 
 export interface UpsertCalendarEventMirrorInput {
@@ -51,6 +52,7 @@ export interface UpsertCalendarEventMirrorInput {
   eventStatus?: CalendarEventStatus;
   syncStatus?: CalendarEventSyncStatus;
   providerUpdatedAt?: string | null;
+  meetUrl?: string | null;
 }
 
 const eventColumns = `
@@ -68,7 +70,8 @@ const eventColumns = `
   event_status,
   sync_status,
   provider_updated_at,
-  synced_at
+  synced_at,
+  meet_url
 `;
 
 function toISO(value: Date | string): string {
@@ -94,6 +97,7 @@ function mapCalendarEvent(row: CalendarEventRow): CalendarEventMirror {
       ? toISO(row.provider_updated_at)
       : null,
     syncedAt: toISO(row.synced_at),
+    meetUrl: row.meet_url ?? null,
   };
 }
 
@@ -207,7 +211,8 @@ export async function upsertCalendarEventMirror(
        event_status,
        sync_status,
        provider_updated_at,
-       synced_at
+       synced_at,
+       meet_url
      )
      SELECT
        $1::uuid,
@@ -223,7 +228,8 @@ export async function upsertCalendarEventMirror(
        $11,
        $12,
        $13::timestamptz,
-       NOW()
+       NOW(),
+       $15
      FROM public.calendar_connection cc
      INNER JOIN public.external_account ea
        ON ea.id = cc.external_account_id
@@ -247,6 +253,7 @@ export async function upsertCalendarEventMirror(
        event_status = EXCLUDED.event_status,
        sync_status = EXCLUDED.sync_status,
        provider_updated_at = EXCLUDED.provider_updated_at,
+       meet_url = COALESCE(EXCLUDED.meet_url, public.calendar_event.meet_url),
        synced_at = NOW(),
        updated_at = NOW()
      WHERE public.calendar_event.user_id = EXCLUDED.user_id
@@ -266,6 +273,7 @@ export async function upsertCalendarEventMirror(
       input.syncStatus ?? "synced",
       input.providerUpdatedAt ?? null,
       input.googleCalendarId ?? null,
+      input.meetUrl ?? null,
     ],
     client,
   );

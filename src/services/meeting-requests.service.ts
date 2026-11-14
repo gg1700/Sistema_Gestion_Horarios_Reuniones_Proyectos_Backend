@@ -6,9 +6,9 @@ import * as MeetingReqRepo from "../repositories/meeting-requests.repository";
 import * as Mapper from "../helpers/mapper.helper";
 import * as DateUtils from "../utils/date";
 import { ServerError, ConflictError } from "../helpers/errors.helper";
-import { upsertCalendarEventMirror } from "../repositories/calendarEvents.repository";
+import { findGoogleCalendarForUser, upsertCalendarEventMirror } from "../repositories/calendarEvents.repository";
 import { createGoogleEvent, deleteGoogleEvent } from "./googleCalendarClient.service";
-import type { CreateCalendarEventInput } from "../types/calendarEvents.types";
+import type { CreateCalendarEventInput, GoogleCalendarEvent, GoogleCalendarForUser } from "../types/calendarEvents.types";
 import type { UpsertCalendarEventMirrorInput } from "../repositories/calendarEvents.repository";
 import { synchronizeCalendarEvents } from "./calendarEvents.service";
 
@@ -265,7 +265,7 @@ export async function updateMeetingRequest(
   }
 }
 
-export async function cancelMeetingRequest(userId: string, requestId: string) {
+export async function cancelMeetingRequest(userId: string, requestId: string, reason: string) {
   try {
     const ans = await processTransaction(async function (client: PoolClient) {
       const requestFound = await MeetingReqRepo.findRequestForRequester(requestId, userId, client);
@@ -276,7 +276,7 @@ export async function cancelMeetingRequest(userId: string, requestId: string) {
       if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING)
         return { result: false, statusCode: 409, message: "Solo se pueden cancelar solicitudes pendientes" };
 
-      const cancelledRequest = await MeetingReqRepo.cancelPendingRequest(requestId, userId, client);
+      const cancelledRequest = await MeetingReqRepo.cancelPendingRequest(requestId, userId, reason, client);
       if (!cancelledRequest || cancelledRequest.length === 0) {
         return {
           result: false,
@@ -286,7 +286,7 @@ export async function cancelMeetingRequest(userId: string, requestId: string) {
       }
 
       const notification = await MeetingReqRepo.
-        createCancelNotification(request.recipient_user_id, userId, requestId, request.title, client);
+        createCancelNotification(request.recipient_user_id, userId, requestId, request.title, reason, client);
       if (!notification || notification.length === 0)
         throw new ServerError("Error al crear la notificacion de cancelacion de solicitud");
 
@@ -329,6 +329,8 @@ type DecisionPreparation =
     result: true;
     request: MeetingReqTypes.MeetingRequestDecisionRow;
     recipientTimezone: string;
+    requesterName: string | null;
+    requesterEmail: string | null;
   };
 
 async function ensureDecisionAvailability(
@@ -398,6 +400,18 @@ function hasSameDecisionSnapshot(
   );
 }
 
+function buildEventDescription(message: string | null, counterpart: string | null, meetUrl?: string | null) {
+  const lines: string[] = [];
+  if (message) lines.push(message);
+  if (counterpart) lines.push(`Reunion con: ${counterpart}`);
+  if (meetUrl) lines.push(`Enlace de Google Meet: ${meetUrl}`);
+  return lines.length > 0 ? lines.join("\n\n") : undefined;
+}
+
+function isCalendarConnected(calendar: GoogleCalendarForUser | null): calendar is GoogleCalendarForUser {
+  return Boolean(calendar && calendar.connectionStatus === "connected" && calendar.calendarId?.trim());
+}
+
 async function compensateGoogleEvent(userId: string, googleEventId: string) {
   try {
     await deleteGoogleEvent(userId, googleEventId);
@@ -434,7 +448,7 @@ export async function decideMeetingRequest(
         if (request.requester_user_id !== null) {
           const notification = await MeetingReqRepo.
             createDecisionNotification(request.requester_user_id, userId, requestId,
-              MeetingReqTypes.MeetingRequestStatus.REJECTED, client,);
+              MeetingReqTypes.MeetingRequestStatus.REJECTED, client, decisionInfo.responseMessage ?? null);
           if (!notification || notification.length === 0)
             throw new ServerError("Error al crear la notificacion de rechazo");
         }
@@ -461,7 +475,14 @@ export async function decideMeetingRequest(
         return { result: false, statusCode: 409, message: "Solo se pueden decidir solicitudes pendientes" };
 
       const recipientTimezone = await ensureDecisionAvailability(request, client);
-      return { result: true, request, recipientTimezone };
+      const contact = await MeetingReqRepo.findRequesterContact(requestId, client);
+      return {
+        result: true,
+        request,
+        recipientTimezone,
+        requesterName: contact[0]?.requester_name ?? null,
+        requesterEmail: contact[0]?.requester_email ?? null
+      };
     });
 
     if (!preparation.result)
@@ -471,15 +492,54 @@ export async function decideMeetingRequest(
     if (!calendar || calendar.connectionStatus !== "connected" || !calendar.calendarId?.trim())
       throw new ConflictError("Google Calendar no esta conectado o requiere autorizacion");
 
+    const pendingRequest = preparation.request;
+    const isGuestRequest = pendingRequest.requester_user_id === null;
     const eventInput: CreateCalendarEventInput = {
-      title: preparation.request.title,
-      description: preparation.request.message ?? undefined,
-      startsAt: preparation.request.requested_start_at.toISOString(),
-      endsAt: preparation.request.requested_end_at.toISOString(),
+      title: pendingRequest.title,
+      description: buildEventDescription(pendingRequest.message,
+        [preparation.requesterName, preparation.requesterEmail].filter(Boolean).join(" - ") || null),
+      startsAt: pendingRequest.requested_start_at.toISOString(),
+      endsAt: pendingRequest.requested_end_at.toISOString(),
       timeZone: preparation.recipientTimezone,
-      isPublic: false
+      isPublic: false,
+      withMeet: true,
+      attendeeEmails: isGuestRequest && preparation.requesterEmail ? [preparation.requesterEmail] : undefined
     };
     const googleEvent = await createGoogleEvent(userId, eventInput);
+    const meetUrl = googleEvent.meetUrl ?? null;
+
+    let requesterCalendar: GoogleCalendarForUser | null = null;
+    let requesterEvent: GoogleCalendarEvent | null = null;
+    let requesterCopyFailed = false;
+    const requesterUserId = pendingRequest.requester_user_id;
+
+    if (requesterUserId !== null) {
+      try {
+        const calendarFound = await findGoogleCalendarForUser(requesterUserId);
+        if (isCalendarConnected(calendarFound)) {
+          requesterCalendar = calendarFound;
+          requesterEvent = await createGoogleEvent(requesterUserId, {
+            title: pendingRequest.title,
+            description: buildEventDescription(pendingRequest.message, null, meetUrl),
+            location: meetUrl ?? undefined,
+            startsAt: pendingRequest.requested_start_at.toISOString(),
+            endsAt: pendingRequest.requested_end_at.toISOString(),
+            timeZone: pendingRequest.timezone,
+            isPublic: false
+          });
+        }
+      } catch {
+        requesterCalendar = null;
+        requesterEvent = null;
+        requesterCopyFailed = true;
+      }
+    }
+
+    const compensateAll = async () => {
+      if (requesterUserId !== null && requesterEvent)
+        await compensateGoogleEvent(requesterUserId, requesterEvent.id);
+      await compensateGoogleEvent(userId, googleEvent.id);
+    };
 
     let decisionResult: DecisionResult;
     try {
@@ -512,20 +572,43 @@ export async function decideMeetingRequest(
           isPublic: false,
           eventStatus: googleEvent.eventStatus,
           syncStatus: "synced",
-          providerUpdatedAt: googleEvent.providerUpdatedAt
+          providerUpdatedAt: googleEvent.providerUpdatedAt,
+          meetUrl
         }
         const calendarEventMirror = await upsertCalendarEventMirror(info, client);
 
+        let requesterMirrorId: string | null = null;
+        if (requesterUserId !== null && requesterCalendar && requesterEvent) {
+          const requesterMirror = await upsertCalendarEventMirror({
+            userId: requesterUserId,
+            calendarConnectionId: requesterCalendar.connectionId,
+            googleEventId: requesterEvent.id,
+            googleCalendarId: requesterCalendar.calendarId,
+            title: requesterEvent.title,
+            description: requesterEvent.description,
+            location: requesterEvent.location,
+            startsAt: requesterEvent.startsAt,
+            endsAt: requesterEvent.endsAt,
+            timeZone: requesterEvent.timeZone,
+            isPublic: false,
+            eventStatus: requesterEvent.eventStatus,
+            syncStatus: "synced",
+            providerUpdatedAt: requesterEvent.providerUpdatedAt,
+            meetUrl
+          }, client);
+          requesterMirrorId = requesterMirror.id;
+        }
+
         const updatedRequest = await MeetingReqRepo.
           updateMeetingRequestDecision(requestId, userId, MeetingReqTypes.MeetingRequestStatus.ACCEPTED,
-            decisionInfo.responseMessage ?? null, calendarEventMirror.id, client);
+            decisionInfo.responseMessage ?? null, calendarEventMirror.id, client, meetUrl, requesterMirrorId);
         if (!updatedRequest || updatedRequest.length === 0)
           throw new ConflictError("No se pudo registrar la aceptacion de la solicitud");
 
         if (request.requester_user_id !== null) {
           const notification = await MeetingReqRepo.
             createDecisionNotification(request.requester_user_id, userId, requestId,
-              MeetingReqTypes.MeetingRequestStatus.ACCEPTED, client);
+              MeetingReqTypes.MeetingRequestStatus.ACCEPTED, client, meetUrl);
           if (!notification || notification.length === 0)
             throw new ServerError("Error al crear la notificacion de aceptacion");
         }
@@ -534,17 +617,19 @@ export async function decideMeetingRequest(
         return {
           result: true,
           statusCode: 200,
-          message: "Solicitud de reunion aceptada correctamente",
+          message: requesterCopyFailed
+            ? "Solicitud de reunion aceptada correctamente, pero no se pudo agregar al calendario del solicitante"
+            : "Solicitud de reunion aceptada correctamente",
           data: formatedData
         };
       });
     } catch (error) {
-      await compensateGoogleEvent(userId, googleEvent.id);
+      await compensateAll();
       throw error;
     }
 
     if (!decisionResult.result) {
-      await compensateGoogleEvent(userId, googleEvent.id);
+      await compensateAll();
       return decisionResult;
     }
     return decisionResult;

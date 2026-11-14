@@ -41,6 +41,7 @@ router.delete(
   "/:requestId",
   Session.verifySession,
   Session.requireActiveProfileUser,
+  Validations.cancelMeetingRequest,
   MeetingReqController.cancelMeetingRequest
 );
 

@@ -99,6 +99,14 @@ function validateDateRange(startsAt: string, endsAt: string): void {
   }
 }
 
+const pastTolerance = 60_000;
+
+function rejectPastStart(startsAt: string): void {
+  if (Date.parse(startsAt) < Date.now() - pastTolerance) {
+    throw new ValidationError("No se pueden agendar eventos en fechas u horas pasadas");
+  }
+}
+
 export function validateCalendarEventId(value: unknown): string {
   if (typeof value !== "string" || !uuidPattern.test(value)) {
     throw new ValidationError("eventId: UUID invalido");
@@ -150,6 +158,7 @@ export function validateCreateCalendarEventBody(body: unknown): CreateCalendarEv
   const startsAt = validateDateTime(value.startsAt, "startsAt");
   const endsAt = validateDateTime(value.endsAt, "endsAt");
   validateDateRange(startsAt, endsAt);
+  rejectPastStart(startsAt);
 
   const result: CreateCalendarEventInput = {
     title: validateText(value.title, "title", 200),
@@ -193,6 +202,7 @@ export function validateUpdateCalendarEventBody(body: unknown): UpdateCalendarEv
 
   if (value.startsAt !== undefined) {
     result.startsAt = validateDateTime(value.startsAt, "startsAt");
+    rejectPastStart(result.startsAt);
   }
 
   if (value.endsAt !== undefined) {

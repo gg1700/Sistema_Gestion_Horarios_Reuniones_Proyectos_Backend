@@ -72,8 +72,8 @@ const googleEvent = {
   title: "Reunión de proyecto",
   description: "Revisión del Sprint 2",
   location: null,
-  startsAt: "2026-11-02T13:00:00.000Z",
-  endsAt: "2026-11-02T14:00:00.000Z",
+  startsAt: "2099-11-02T13:00:00.000Z",
+  endsAt: "2099-11-02T14:00:00.000Z",
   timeZone: "America/La_Paz",
   eventStatus: "confirmed",
   providerUpdatedAt: null,
@@ -99,8 +99,8 @@ const mirror = {
 
 const input = {
   title: "Reunión de proyecto",
-  startsAt: "2026-11-02T09:00:00-04:00",
-  endsAt: "2026-11-02T10:00:00-04:00",
+  startsAt: "2099-11-02T09:00:00-04:00",
+  endsAt: "2099-11-02T10:00:00-04:00",
   timeZone: "America/La_Paz",
   description: "Revisión del Sprint 2",
 };
@@ -287,6 +287,21 @@ describe("Calendar events - POST", () => {
       })
       .expect(400);
 
+    expect(mocks.createGoogleEvent).not.toHaveBeenCalled();
+  });
+
+  it("rechaza eventos en fechas pasadas", async () => {
+    const response = await request(app)
+      .post(path)
+      .set("Authorization", authorization)
+      .send({
+        ...input,
+        startsAt: "2020-01-01T09:00:00-04:00",
+        endsAt: "2020-01-01T10:00:00-04:00",
+      })
+      .expect(400);
+
+    expect(response.body.message).toBe("No se pueden agendar eventos en fechas u horas pasadas");
     expect(mocks.createGoogleEvent).not.toHaveBeenCalled();
   });
 

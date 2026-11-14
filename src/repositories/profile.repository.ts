@@ -344,6 +344,39 @@ export async function insertWorkExperiences(userId: string, workExperiences: Pro
   await client.query(query, values);
 }
 
+export async function insertWorkExperience(
+  userId: string,
+  experience: ProfileTypes.NewWorkExperienceDB,
+  client: PoolClient) {
+  const query = `
+    INSERT INTO "workexperience" (user_id, title, description, company_name, start_date,
+    end_date, visible)
+    VALUES ($1, $2, $3, $4, $5, $6, $7)
+    RETURNING id
+  `;
+  const values = [
+    userId,
+    experience.title,
+    experience.description,
+    experience.company_name,
+    experience.start_date,
+    experience.end_date,
+    experience.visible
+  ];
+  const { rows } = await client.query(query, values);
+  return rows[0]?.id as string | undefined;
+}
+
+export async function deleteWorkExperience(id: string, userId: string, client: PoolClient) {
+  const query = `
+    DELETE FROM "workexperience"
+    WHERE id = $1 AND user_id = $2
+    RETURNING id
+  `;
+  const { rows } = await client.query(query, [id, userId]);
+  return rows.length > 0;
+}
+
 export interface PublicGitHubState {
   githubConnected: boolean;
   activityList: string | null;

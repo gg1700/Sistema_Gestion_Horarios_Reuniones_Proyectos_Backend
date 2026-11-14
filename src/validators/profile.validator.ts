@@ -206,6 +206,10 @@ function validateNewWorkExperience(value: unknown): ProfileTypes.NewWorkExperien
   };
 }
 
+export function validateCreateWorkExperience(payload: unknown) {
+  return validateNewWorkExperience(payload);
+}
+
 function validateMaximumItems<T>(items: T[], maximum: number, field: string) {
   if (items.length > maximum) {
     throw new ValidationError(`${field}: se permite un maximo de ${maximum}`);

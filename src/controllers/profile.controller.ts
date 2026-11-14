@@ -76,6 +76,42 @@ export async function modifyWorkExperience(req: Request, res: Response) {
   }
 }
 
+export async function createWorkExperience(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+    const validatedUserId = GeneralValidations.validateId(userId);
+
+    const result = await ProfileService.createWorkExperience(validatedUserId, req.body);
+    return res.status(result.statusCode).json({
+      success: result.result,
+      message: result.message,
+      data: result.data
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: (error as Error).message
+    });
+  }
+}
+
+export async function deleteWorkExperience(req: Request, res: Response) {
+  try {
+    const { userId } = req.user as TokenTypes.TokenPayload;
+
+    const validatedUserId = GeneralValidations.validateId(userId);
+    const validatedId = GeneralValidations.validateId(req.params.id);
+
+    const result = await ProfileService.removeWorkExperience(validatedId, validatedUserId);
+    return res.status(result.statusCode).json({ success: result.result, message: result.message });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: (error as Error).message
+    });
+  }
+}
+
 export async function getPublicProfile(req: Request, res: Response) {
   const handle = req.params.handle;
 

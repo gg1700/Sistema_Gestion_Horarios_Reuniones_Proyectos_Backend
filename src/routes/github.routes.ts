@@ -26,9 +26,9 @@ router.put(
 
 router.get(
   "/activity/:type",
-  RateLimit.githubActivityRateLimit,
   Session.verifySession,
   Session.requireActiveProfileUser,
+  RateLimit.githubActivityRateLimit,
   GithubController.requestGithubActivity
 );
 

@@ -418,3 +418,23 @@ export async function findPublicGitHubState(
   return rows[0] as PublicGitHubState;
 }
 
+
+const removableTables = {
+  phones: "user_phone",
+  contactEmails: "user_email",
+  addresses: "address",
+  links: "link",
+  countries: "user_country",
+} as const;
+
+/** Elimina los elementos del usuario que ya no estan en la lista editada. */
+export async function deleteItemsNotIn(
+  list: keyof typeof removableTables,
+  userId: string,
+  keepIds: string[],
+  client: PoolClient
+) {
+  const query = `DELETE FROM "${removableTables[list]}"
+    WHERE user_id = $1::uuid AND NOT (id = ANY($2::uuid[]))`;
+  await client.query(query, [userId, keepIds]);
+}

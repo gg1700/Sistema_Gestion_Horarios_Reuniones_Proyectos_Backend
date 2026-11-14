@@ -11,7 +11,14 @@ router.use(
   availabilityRulesRateLimit,
 );
 
-router.get("/", controller.getAvailabilityRules);
-router.put("/", controller.replaceAvailabilityRules);
+router.get(
+  "/",
+  controller.getAvailabilityRules
+);
+
+router.put(
+  "/",
+  controller.replaceAvailabilityRules
+);
 
 export default router;

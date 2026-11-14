@@ -11,9 +11,24 @@ router.use(
   googleCalendarRateLimit,
 );
 
-router.get("/", CalendarEventsController.listCalendarEvents);
-router.post("/", CalendarEventsController.createCalendarEvent);
-router.patch("/:eventId", CalendarEventsController.updateCalendarEvent);
-router.delete("/:eventId", CalendarEventsController.deleteCalendarEvent);
+router.get(
+  "/",
+  CalendarEventsController.listCalendarEvents
+);
+
+router.post(
+  "/",
+  CalendarEventsController.createCalendarEvent
+);
+
+router.patch(
+  "/:eventId",
+  CalendarEventsController.updateCalendarEvent
+);
+
+router.delete(
+  "/:eventId",
+  CalendarEventsController.deleteCalendarEvent
+);
 
 export default router;

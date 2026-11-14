@@ -4,6 +4,10 @@ import { publicCalendarRateLimit } from "../middlewares/publicCalendarRateLimit.
 
 const router = Router();
 
-router.get("/:handle", publicCalendarRateLimit, getPublicCalendar);
+router.get(
+  "/:handle",
+  publicCalendarRateLimit,
+  getPublicCalendar
+);
 
 export default router;

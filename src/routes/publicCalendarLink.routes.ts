@@ -14,7 +14,14 @@ router.use(rateLimit({
 }));
 router.use(verifySession);
 
-router.get("/", controller.getPublicCalendarLink);
-router.patch("/", controller.updatePublicCalendarLink);
+router.get(
+  "/",
+  controller.getPublicCalendarLink
+);
+
+router.patch(
+  "/",
+  controller.updatePublicCalendarLink
+);
 
 export default router;

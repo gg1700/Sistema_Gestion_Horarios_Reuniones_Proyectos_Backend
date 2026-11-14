@@ -20,8 +20,20 @@ const controller = createPublicLinkController(
 router.use(publicLinkRateLimit);
 router.use(Session.verifySession, Session.requireActiveProfileUser);
 
-router.get("/", controller.get);
-router.get("/availability", controller.checkAvailability);
-router.patch("/", requireRepositoryOrigin, controller.update);
+router.get(
+  "/",
+  controller.get
+);
+
+router.get(
+  "/availability", 
+  controller.checkAvailability
+);
+
+router.patch(
+  "/",
+  requireRepositoryOrigin,
+  controller.update
+);
 
 export default router;

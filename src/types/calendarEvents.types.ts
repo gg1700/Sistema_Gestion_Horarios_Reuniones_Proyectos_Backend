@@ -37,6 +37,7 @@ export interface CalendarEventResponse {
   eventStatus: CalendarEventStatus;
   syncStatus: CalendarEventSyncStatus;
   meetUrl?: string | null;
+  meetingRequestId?: string | null;
 }
 export interface CalendarEventMirror extends CalendarEventResponse {
   userId: string;

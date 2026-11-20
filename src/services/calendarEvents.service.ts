@@ -12,6 +12,7 @@ import {
   findCalendarSyncToken,
   applyCalendarChanges,
   clearCalendarSyncToken,
+  findMeetingRequestIdForCalendarEvent,
 } from "../repositories/calendarEvents.repository";
 import {
   listGoogleEvents,
@@ -232,7 +233,16 @@ export async function listCalendarEvents(
       ),
     );
 
-    events.push(toResponse(mirror));
+    const meetingRequestId =
+      await findMeetingRequestIdForCalendarEvent(
+        userId,
+        mirror.id
+      );
+
+    events.push({
+      ...toResponse(mirror),
+      meetingRequestId
+    });
   }
 
   return events;
@@ -347,6 +357,18 @@ export async function deleteCalendarEvent(
     eventId,
     calendar.connectionId,
   );
+
+  const meetingRequestId =
+    await findMeetingRequestIdForCalendarEvent(
+      userId,
+      eventId
+    );
+
+  if (meetingRequestId) {
+    throw new ConflictError(
+      "Este evento pertenece a una reunión confirmada. Debes cancelar la reunión para notificar al otro participante."
+    );
+  }
 
   await deleteGoogleEvent(userId, current.googleEventId);
 

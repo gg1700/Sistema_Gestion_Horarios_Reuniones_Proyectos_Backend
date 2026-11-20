@@ -192,6 +192,36 @@ export async function findOwnedCalendarEvent(
   return rows[0] ? mapCalendarEvent(rows[0]) : null;
 }
 
+export async function findMeetingRequestIdForCalendarEvent(
+  userId: string,
+  eventId: string
+): Promise<string | null> {
+  const rows = await executeQuery<{
+    meeting_request_id: string;
+  }>(
+    `
+      SELECT mr.id AS meeting_request_id
+      FROM public.meeting_request mr
+      WHERE mr.status = 'accepted'
+        AND (
+          (
+            mr.calendar_event_id = $1
+            AND mr.recipient_user_id = $2
+          )
+          OR
+          (
+            mr.requester_calendar_event_id = $1
+            AND mr.requester_user_id = $2
+          )
+        )
+      LIMIT 1
+    `,
+    [eventId, userId]
+  );
+
+  return rows[0]?.meeting_request_id ?? null;
+}
+
 export async function upsertCalendarEventMirror(
   input: UpsertCalendarEventMirrorInput,
   client?: PoolClient,

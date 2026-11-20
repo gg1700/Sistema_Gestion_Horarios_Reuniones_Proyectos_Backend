@@ -6,8 +6,17 @@ import * as MeetingReqRepo from "../repositories/meeting-requests.repository";
 import * as Mapper from "../helpers/mapper.helper";
 import * as DateUtils from "../utils/date";
 import { ServerError, ConflictError } from "../helpers/errors.helper";
-import { upsertCalendarEventMirror, findGoogleCalendarForUser } from "../repositories/calendarEvents.repository";
-import { createGoogleEvent, deleteGoogleEvent } from "./googleCalendarClient.service";
+import {
+  upsertCalendarEventMirror,
+  findGoogleCalendarForUser,
+  deleteCalendarEventMirror
+} from "../repositories/calendarEvents.repository";
+
+import {
+  createGoogleEvent,
+  deleteGoogleEvent,
+  GoogleCalendarClientError
+} from "./googleCalendarClient.service";
 import type {
   CreateCalendarEventInput,
   GoogleCalendarForUser,
@@ -268,46 +277,179 @@ export async function updateMeetingRequest(
   }
 }
 
-export async function cancelMeetingRequest(userId: string, requestId: string, reason: string) {
+export async function cancelMeetingRequest(
+  userId: string,
+  requestId: string,
+  reason: string
+) {
   try {
-    const ans = await processTransaction(async function (client: PoolClient) {
-      const requestFound = await MeetingReqRepo.findRequestForRequester(requestId, userId, client);
-      if (!requestFound || requestFound.length === 0)
-        return { result: false, statusCode: 404, message: "Solicitud de reunion no encontrada" };
+    const ans = await processTransaction(async function (
+      client: PoolClient
+    ) {
+      const requestFound =
+        await MeetingReqRepo.findRequestForParticipant(
+          requestId,
+          userId,
+          client
+        );
+
+      if (!requestFound || requestFound.length === 0) {
+        return {
+          result: false,
+          statusCode: 404,
+          message: "Solicitud de reunión no encontrada"
+        };
+      }
 
       const request = requestFound[0];
-      if (request.status !== MeetingReqTypes.MeetingRequestStatus.PENDING)
-        return { result: false, statusCode: 409, message: "Solo se pueden cancelar solicitudes pendientes" };
 
-      const cancelledRequest = await MeetingReqRepo.cancelPendingRequest(requestId, userId, reason, client);
+      const isRequester =
+        request.requester_user_id === userId;
+
+      const isPending =
+        request.status === MeetingReqTypes.MeetingRequestStatus.PENDING;
+
+      const isAccepted =
+        request.status === MeetingReqTypes.MeetingRequestStatus.ACCEPTED;
+
+      if (!isPending && !isAccepted) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "Esta solicitud ya fue resuelta y no puede cancelarse nuevamente"
+        };
+      }
+
+      if (isPending && !isRequester) {
+        return {
+          result: false,
+          statusCode: 409,
+          message: "Solo el solicitante puede retirar una solicitud pendiente"
+        };
+      }
+
+      const eventsToDelete = isAccepted
+        ? [
+            {
+              userId: request.host_event_user_id,
+              googleEventId: request.host_google_event_id,
+              mirrorId: request.calendar_event_id
+            },
+            {
+              userId: request.requester_event_user_id,
+              googleEventId: request.requester_google_event_id,
+              mirrorId: request.requester_calendar_event_id
+            }
+          ].filter(
+            event =>
+              event.userId &&
+              event.googleEventId
+          )
+        : [];
+
+      // Primero se eliminan los eventos externos.
+      // Si Google ya no encuentra uno, se considera eliminado.
+      for (const event of eventsToDelete) {
+        try {
+          await deleteGoogleEvent(
+            event.userId,
+            event.googleEventId
+          );
+        } catch (error) {
+          if (
+            error instanceof GoogleCalendarClientError &&
+            error.code === "google_event_not_found"
+          ) {
+            continue;
+          }
+
+          throw new ServerError(
+            "No se pudieron eliminar todos los eventos de Google Calendar. La reunión sigue confirmada; vuelve a intentarlo.",
+            503
+          );
+        }
+      }
+
+      const cancelledRequest =
+        await MeetingReqRepo.cancelMeetingRequest(
+          requestId,
+          userId,
+          reason,
+          request.status,
+          client
+        );
+
       if (!cancelledRequest || cancelledRequest.length === 0) {
         return {
           result: false,
           statusCode: 409,
-          message: "No se pudo cancelar la solicitud; puede que ya no este pendiente"
+          message: "No se pudo cancelar la solicitud porque su estado cambió"
         };
       }
 
-      const notification = await MeetingReqRepo.createCancelNotification(request.recipient_user_id, userId,
-        requestId, request.title, reason, client);
-      if (!notification || notification.length === 0)
-        throw new ServerError("Error al crear la notificacion de cancelacion de solicitud");
+      // Eliminar los espejos locales de ambos calendarios.
+      for (const event of eventsToDelete) {
+        if (event.mirrorId) {
+          await deleteCalendarEventMirror(
+            event.userId,
+            event.mirrorId,
+            client
+          );
+        }
+      }
 
-      const formatedData = Mapper.meetingRequestToResponse(cancelledRequest[0]);
+      // Notificar al otro participante.
+      const otherParticipantId = isRequester
+        ? request.recipient_user_id
+        : request.requester_user_id;
+
+      if (otherParticipantId) {
+        const notification =
+          await MeetingReqRepo.createCancelNotification(
+            otherParticipantId,
+            userId,
+            requestId,
+            request.title,
+            reason,
+            client,
+            isAccepted
+          );
+
+        if (!notification || notification.length === 0) {
+          throw new ServerError(
+            "Error al crear la notificación de cancelación"
+          );
+        }
+      }
+
+      const formattedData =
+        Mapper.meetingRequestToResponse(cancelledRequest[0]);
+
       return {
         result: true,
         statusCode: 200,
-        message: "Solicitud de reunion cancelada correctamente",
-        data: formatedData
+        message: isAccepted
+          ? "Reunión cancelada correctamente"
+          : "Solicitud retirada correctamente",
+        data: formattedData
       };
     });
 
     return ans;
   } catch (err) {
-    if (err instanceof ServerError)
-      return { result: false, statusCode: err.statusCode, message: err.message };
+    if (err instanceof ServerError) {
+      return {
+        result: false,
+        statusCode: err.statusCode,
+        message: err.message
+      };
+    }
 
-    return { result: false, statusCode: 500, message: `Error en el servicio: ${(err as Error).message}` };
+    return {
+      result: false,
+      statusCode: 500,
+      message: `Error en el servicio: ${(err as Error).message}`
+    };
   }
 }
 

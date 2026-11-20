@@ -12,6 +12,7 @@ import {
   findCalendarSyncToken,
   applyCalendarChanges,
   clearCalendarSyncToken,
+  findMeetingRequestIdForCalendarEvent,
 } from "../repositories/calendarEvents.repository";
 import {
   listGoogleEvents,

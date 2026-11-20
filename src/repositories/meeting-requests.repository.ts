@@ -161,6 +161,35 @@ export async function listRequests(
   return sentRequests;
 }
 
+export async function findRequestForRequester(
+  requestId: string,
+  requesterUserId: string,
+  client: PoolClient
+) {
+  const query = `
+    SELECT
+      id,
+      requester_user_id,
+      recipient_user_id,
+      requested_start_at,
+      requested_end_at,
+      timezone,
+      title,
+      message,
+      status
+    FROM public.meeting_request
+    WHERE id = $1
+      AND requester_user_id = $2
+    FOR UPDATE
+  `;
+
+  const values = [requestId, requesterUserId];
+
+  const requestFound = await client.query(query, values);
+
+  return requestFound.rows;
+}
+
 export async function findRequestForParticipant(
   requestId: string,
   userId: string,

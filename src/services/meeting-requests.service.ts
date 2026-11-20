@@ -9,7 +9,7 @@ import { ServerError, ConflictError } from "../helpers/errors.helper";
 import {
   upsertCalendarEventMirror,
   findGoogleCalendarForUser,
-  deleteCalendarEventMirror
+  deleteCalendarEventMirror,
 } from "../repositories/calendarEvents.repository";
 
 import {

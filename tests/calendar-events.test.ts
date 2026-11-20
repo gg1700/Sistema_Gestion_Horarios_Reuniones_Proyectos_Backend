@@ -1,3 +1,4 @@
+
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -362,22 +363,22 @@ describe("Calendar events - PATCH", () => {
         timeZone: "America/Bogota",
       }),
     );
+  });
 
-    it("rechaza modificar eventos para que comiencen en el pasado", async () => {
-      const pastStart = new Date(Date.now() - 2 * 60 * 60 * 1000);
-      const pastEnd = new Date(Date.now() - 60 * 60 * 1000);
+  it("rechaza modificar eventos para que comiencen en el pasado", async () => {
+    const pastStart = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const pastEnd = new Date(Date.now() - 60 * 60 * 1000);
 
-      await request(app)
-        .patch(`${path}/${eventId}`)
-        .set("Authorization", authorization)
-        .send({
-          startsAt: pastStart.toISOString(),
-          endsAt: pastEnd.toISOString(),
-        })
-        .expect(400);
+    await request(app)
+      .patch(`${path}/${eventId}`)
+      .set("Authorization", authorization)
+      .send({
+        startsAt: pastStart.toISOString(),
+        endsAt: pastEnd.toISOString(),
+      })
+      .expect(400);
 
-      expect(mocks.updateGoogleEvent).not.toHaveBeenCalled();
-    });
+    expect(mocks.updateGoogleEvent).not.toHaveBeenCalled();
   });
 
   it("reintenta el guardado local sin repetir el PATCH de Google", async () => {

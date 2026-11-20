@@ -35,7 +35,7 @@ function validateMeetingTitle(title: unknown, field: string) {
   }
 
   const formattedTitle = collapseSpaces(
-    title.replace(/[\u0000-\u001F\u007F<>]/g, " "),
+    title.replace(/[\p{Cc}<>]/gu, " "),
   );
 
   if (formattedTitle.length < 1 || formattedTitle.length > 150) {

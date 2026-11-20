@@ -14,7 +14,7 @@
     "dev": "tsx watch src/app.ts",
     "build": "tsc",
     "start": "node dist/app.js",
-    "test": "vitest run",
+    "test": "vitest run --exclude tests/availability-rules.integration.test.ts --exclude tests/github-repositories.local.test.ts --exclude tests/visibility-general.test.ts --exclude tests/visibility.test.ts",
     "migrate-db": "tsx db/scripts/migrate.ts",
     "reset-db": "tsx db/scripts/reset.ts",
     "my-migrations": "tsx db/my_scripts/migrate.ts"

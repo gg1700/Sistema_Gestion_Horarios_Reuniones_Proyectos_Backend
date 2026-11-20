@@ -137,30 +137,70 @@ export function validateMeetingRequestId(requestId: unknown) {
   return requestId;
 }
 
+function validateReason(reason: unknown, field: string) {
+  if (typeof reason !== "string")
+    throw new ValidationError(`${field}: tipo de dato invalido`);
+  const formattedReason = collapseSpaces(reason);
+  if (formattedReason.length < 5 || formattedReason.length > 2000)
+    throw new ValidationError(`${field}: debe tener entre 5 y 2000 caracteres`);
+  return formattedReason;
+}
+
 export function validateDecisionBody(payload: unknown) {
   const p = GeneralValidations.validateObject(payload, "Body");
   const allowedFields = ["decision", "responseMessage"];
+
   Object.keys(p).forEach((field) => {
-    if (!allowedFields.includes(field)) throw new ValidationError(`Campo no permitido: ${field}`);
+    if (!allowedFields.includes(field)) {
+      throw new ValidationError(`Campo no permitido: ${field}`);
+    }
   });
-  if (p.decision !== MeetingReqTypes.MeetingRequestStatus.ACCEPTED &&
-    p.decision !== MeetingReqTypes.MeetingRequestStatus.REJECTED)
+
+  if (
+    p.decision !== MeetingReqTypes.MeetingRequestStatus.ACCEPTED &&
+    p.decision !== MeetingReqTypes.MeetingRequestStatus.REJECTED
+  ) {
     throw new ValidationError("La decision debe ser accepted o rejected");
+  }
 
   const processedInfo: MeetingReqTypes.MeetingRequestDecision = {
     decision: p.decision
   };
 
-  if (p.responseMessage !== undefined) {
-    if (typeof p.responseMessage !== "string")
+  if (p.decision === MeetingReqTypes.MeetingRequestStatus.REJECTED) {
+    processedInfo.responseMessage = validateReason(
+      p.responseMessage,
+      "El motivo del rechazo"
+    );
+  } else if (p.responseMessage !== undefined) {
+    if (typeof p.responseMessage !== "string") {
       throw new ValidationError("Tipo de dato invalido en el mensaje de respuesta");
+    }
 
     const formattedMessage = collapseSpaces(p.responseMessage);
-    if (formattedMessage.length < 1 || formattedMessage.length > 2000)
+
+    if (formattedMessage.length < 1 || formattedMessage.length > 2000) {
       throw new ValidationError("El mensaje de respuesta debe tener entre 1 y 2000 caracteres");
+    }
 
     processedInfo.responseMessage = formattedMessage;
   }
+
+  return processedInfo;
+}
+
+export function validateCancelBody(payload: unknown) {
+  const p = GeneralValidations.validateObject(payload, "Body");
+
+  Object.keys(p).forEach((field) => {
+    if (field !== "reason") {
+      throw new ValidationError(`Campo no permitido: ${field}`);
+    }
+  });
+
+  const processedInfo: MeetingReqTypes.CancelMeetingRequest = {
+    reason: validateReason(p.reason, "El motivo de la cancelacion")
+  };
 
   return processedInfo;
 }

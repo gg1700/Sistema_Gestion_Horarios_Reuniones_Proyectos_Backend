@@ -57,6 +57,8 @@ export interface MeetingRequestRow {
   owner_response_message?: string | null;
   guest_name: string | null;
   guest_email: string | null;
+  meet_url?: string | null;
+  cancellation_reason?: string | null;
 }
 export interface MeetingRequestResponse {
   id: string;
@@ -71,6 +73,8 @@ export interface MeetingRequestResponse {
   ownerResponseMessage: string | null;
   guestName: string | null;
   guestEmail: string | null;
+  meetUrl: string | null;
+  cancellationReason: string | null;
 }
 
 export interface ListedRequestsResponse {
@@ -88,6 +92,8 @@ export interface ListedRequestsResponse {
   resolvedAt: Date | null;
   ownerResponseMessage?: string | null;
   guestEmail: string | null;
+  meetUrl: string | null;
+  cancellationReason: string | null;
 }
 
 export interface ListedRequestsRows {
@@ -106,6 +112,8 @@ export interface ListedRequestsRows {
   resolved_at: Date | null;
   owner_response_message?: string | null;
   guest_email: string | null;
+  meet_url?: string | null;
+  cancellation_reason?: string | null;
 }
 
 export interface UpdateMeetingRequest {
@@ -141,4 +149,15 @@ export interface MeetingRequestDecisionRow {
   title: string;
   message: string | null;
   status: MeetingRequestStatus;
+  guest_name?: string | null;
+  guest_email?: string | null;
+}
+
+export interface CancelMeetingRequest {
+  reason: string;
+}
+
+export interface RequesterContactRow {
+  requester_name: string | null;
+  requester_email: string | null;
 }

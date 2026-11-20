@@ -107,8 +107,9 @@ export async function cancelMeetingRequest(req: Request, res: Response) {
     const { userId } = req.user as TokenTypes.TokenPayload;
     const validatedUserId = GeneralValidations.validateId(userId);
     const requestId = MeetingReqValidation.validateMeetingRequestId(req.params.requestId);
+    const { reason } = req.body as MeetingReqTypes.CancelMeetingRequest;
 
-    const { result, statusCode, message, data } = await MeetingReqService.cancelMeetingRequest(validatedUserId, requestId);
+    const { result, statusCode, message, data } = await MeetingReqService.cancelMeetingRequest(validatedUserId, requestId, reason);
     if (!result) return res.status(statusCode).json({ success: false, message });
 
     return res.status(statusCode).json({ success: true, message, data });

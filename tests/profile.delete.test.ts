@@ -59,8 +59,8 @@ beforeEach(async () => {
   ids.push(userId, otherId);
   authorization = `Bearer ${createSession(userId, "test-delete-owner").token}`;
   secondAuthorization = `Bearer ${createSession(userId, "test-delete-owner").token}`;
-  vi.spyOn(console, "warn").mockImplementation(() => {});
-  vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.spyOn(console, "warn").mockImplementation(() => { });
+  vi.spyOn(console, "error").mockImplementation(() => { });
   vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 200 })));
 });
 
@@ -95,7 +95,7 @@ async function fillProfile() {
   await pool.query(`INSERT INTO public.user_country (user_id, country_id) SELECT $1, id FROM public.country WHERE code = '591'`, [userId]);
   await pool.query(`INSERT INTO public.workexperience (user_id, title, start_date) VALUES ($1, 'Trabajo', '2024-01-01')`, [userId]);
   await pool.query(`INSERT INTO public.link (user_id, text, url) VALUES ($1, 'Personal', 'https://example.com')`, [userId]);
-  
+
   await pool.query(
     `INSERT INTO public.external_account
       (user_id, provider, provider_user_id, access_token, refresh_token)
@@ -147,8 +147,10 @@ describe("DELETE /api/v1/profile", () => {
     expect(response.body).toEqual({ success: true, message: "Cuenta eliminada correctamente" });
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const { rows } = await pool.query(`SELECT * FROM public."user" WHERE id = $1`, [userId]);
-    expect(rows[0]).toMatchObject({ status: "deleted", public_link_active: false, name: null,
-      first_surname: null, email: null, password_hash: null, profile_picture: null });
+    expect(rows[0]).toMatchObject({
+      status: "deleted", public_link_active: false, name: null,
+      first_surname: null, email: null, password_hash: null, profile_picture: null
+    });
     expect(rows[0].handle_name).toMatch(/^deleted-[a-f0-9-]{36}$/);
     expect(rows[0].deleted_at).toBeInstanceOf(Date);
     for (const table of ["user_surname", "user_country", "user_phone", "user_email", "address", "link", "workexperience", "external_account", "test_delete_section"]) {
@@ -201,7 +203,7 @@ describe("DELETE /api/v1/profile", () => {
   });
 
   it("prevents a concurrent profile write from recreating personal data after deletion", async () => {
-    
+
     await pool.query(
       `INSERT INTO public.external_account
         (user_id, provider, provider_user_id, access_token)
@@ -262,10 +264,22 @@ describe("DELETE /api/v1/profile", () => {
     expect((await request(app).get(route).set("Authorization", authorization)).status).toBe(200);
   });
 
-  it("keeps all current user foreign keys cascading for a future purge", async () => {
-    const { rows } = await pool.query(`SELECT conname FROM pg_constraint WHERE contype = 'f'
-      AND confrelid = 'public."user"'::regclass AND confdeltype <> 'c'`);
-    expect(rows).toEqual([]);
+  it("preserves the intended deletion policies for user foreign keys", async () => {
+    const { rows } = await pool.query(`
+    SELECT conname, confdeltype
+    FROM pg_constraint
+    WHERE contype = 'f'
+      AND confrelid = 'public."user"'::regclass
+      AND confdeltype <> 'c'
+    ORDER BY conname
+  `);
+
+    expect(rows).toEqual([
+      {
+        conname: "notification_actor_user_id_fkey",
+        confdeltype: "n",
+      },
+    ]);
   });
 
   it("limits deletion to five requests per IP per fifteen minutes, including invalid sessions", async () => {

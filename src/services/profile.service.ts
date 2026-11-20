@@ -478,7 +478,8 @@ function splitEditable<T extends { id: string; visible?: boolean }>(
     if (item.id) {
       existing.push(withVisibility as T);
     } else {
-      const { id: _unused, ...rest } = withVisibility;
+      const rest = { ...withVisibility };
+      delete (rest as { id?: string }).id;
       created.push(rest as Omit<T, "id">);
     }
   }

@@ -145,7 +145,7 @@ export async function listRequests(
     filter = `AND mr.status = $${values.length}`;
   }
   const query = `SELECT mr.id, mr.title, mr.message, mr.requested_start_at, mr.requested_end_at,
-    mr.timezone, mr.status, mr.created_at, mr.resolved_at, mr.owner_response_message,
+    mr.timezone, mr.status, mr.created_at, mr.resolved_at, mr.owner_response_message, mr.meet_url, mr.cancellation_reason,
     ${counterpartHandle} AS recipient_handle,
     ${counterpartName} AS recipient_name,
     ${counterpartSurname} AS recipient_surname,
@@ -271,29 +271,41 @@ export async function createUpdateNotification(
 export async function cancelPendingRequest(
   requestId: string,
   userId: string,
-  client: PoolClient) {
+  reason: string,
+  client: PoolClient
+) {
   const query = `UPDATE "meeting_request"
-    SET status = $3, resolved_at = NOW(), updated_at = NOW()
+    SET status = $3,
+        cancellation_reason = $5,
+        resolved_at = NOW(),
+        updated_at = NOW()
     WHERE id = $1
-    AND requester_user_id = $2
-    AND status = $4
+      AND requester_user_id = $2
+      AND status = $4
     RETURNING
-    id,
-    title,
-    message,
-    requested_start_at,
-    requested_end_at,
-    timezone,
-    status,
-    created_at,
-    resolved_at,
-    owner_response_message`;
+      id,
+      title,
+      message,
+      requested_start_at,
+      requested_end_at,
+      timezone,
+      status,
+      created_at,
+      resolved_at,
+      owner_response_message,
+      guest_name,
+      guest_email,
+      meet_url,
+      cancellation_reason`;
+
   const values = [
     requestId,
     userId,
     MeetingReqTypes.MeetingRequestStatus.CANCELLED,
-    MeetingReqTypes.MeetingRequestStatus.PENDING
+    MeetingReqTypes.MeetingRequestStatus.PENDING,
+    reason
   ];
+
   const cancelledRequest = await client.query(query, values);
   return cancelledRequest.rows;
 }
@@ -303,25 +315,31 @@ export async function createCancelNotification(
   requesterUserId: string,
   requestId: string,
   title: string,
-  client: PoolClient) {
+  reason: string,
+  client: PoolClient
+) {
   const query = `INSERT INTO "notification" (
     user_id, actor_user_id, meeting_request_id, notification_type,
     title, message, payload)
     VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
     RETURNING *`;
+
   const payload = JSON.stringify({
     requestId,
-    action: "cancelled"
+    action: "cancelled",
+    reason
   });
+
   const values = [
     recipientUserId,
     requesterUserId,
     requestId,
     MeetingReqTypes.NotificationType.CANCELLED,
     "Solicitud de reunion cancelada",
-    `El solicitante ha cancelado la solicitud de reunion: ${title}`,
+    `El solicitante ha cancelado la solicitud de reunion: ${title}. Motivo: ${reason}`,
     payload
   ];
+
   const notification = await client.query(query, values);
   return notification.rows;
 }
@@ -329,11 +347,24 @@ export async function createCancelNotification(
 export async function findRequestForRecipient(
   requestId: string,
   recipientUserId: string,
-  client: PoolClient) {
-  const query = `SELECT id, requester_user_id, recipient_user_id, requested_start_at,
-    requested_end_at, timezone, title, message, status FROM "meeting_request"
+  client: PoolClient
+) {
+  const query = `SELECT
+    id,
+    requester_user_id,
+    recipient_user_id,
+    requested_start_at,
+    requested_end_at,
+    timezone,
+    title,
+    message,
+    status,
+    guest_name,
+    guest_email
+    FROM "meeting_request"
     WHERE id = $1 AND recipient_user_id = $2
     FOR UPDATE`;
+
   const values = [requestId, recipientUserId];
   const requestFound = await client.query(query, values);
   return requestFound.rows;
@@ -347,25 +378,48 @@ export async function updateMeetingRequestDecision(
     | MeetingReqTypes.MeetingRequestStatus.REJECTED,
   responseMessage: string | null,
   calendarEventId: string | null,
-  client: PoolClient) {
+  client: PoolClient,
+  meetUrl: string | null = null,
+  requesterCalendarEventId: string | null = null
+) {
   const query = `UPDATE "meeting_request" SET
     status = $3,
     owner_response_message = $4,
     calendar_event_id = $5,
+    meet_url = $7,
+    requester_calendar_event_id = $8,
     resolved_at = NOW(),
     updated_at = NOW()
-    WHERE id = $1 AND recipient_user_id = $2 AND status = $6
+    WHERE id = $1
+      AND recipient_user_id = $2
+      AND status = $6
     RETURNING
-    id, title, message, requested_start_at, requested_end_at,
-    timezone, status, created_at, resolved_at, owner_response_message`;
+      id,
+      title,
+      message,
+      requested_start_at,
+      requested_end_at,
+      timezone,
+      status,
+      created_at,
+      resolved_at,
+      owner_response_message,
+      guest_name,
+      guest_email,
+      meet_url,
+      cancellation_reason`;
+
   const values = [
     requestId,
     recipientUserId,
     decision,
     responseMessage,
     calendarEventId,
-    MeetingReqTypes.MeetingRequestStatus.PENDING
+    MeetingReqTypes.MeetingRequestStatus.PENDING,
+    meetUrl,
+    requesterCalendarEventId
   ];
+
   const updatedRequest = await client.query(query, values);
   return updatedRequest.rows;
 }
@@ -377,26 +431,52 @@ export async function createDecisionNotification(
   decision:
     | MeetingReqTypes.MeetingRequestStatus.ACCEPTED
     | MeetingReqTypes.MeetingRequestStatus.REJECTED,
-  client: PoolClient) {
-  const isAccepted = (decision === MeetingReqTypes.MeetingRequestStatus.ACCEPTED);
+  client: PoolClient,
+  detail: string | null = null
+) {
+  const isAccepted =
+    decision === MeetingReqTypes.MeetingRequestStatus.ACCEPTED;
+
   const notificationType = isAccepted
     ? MeetingReqTypes.NotificationType.ACCEPTED
     : MeetingReqTypes.NotificationType.REJECTED;
+
   const notificationTitle = isAccepted
     ? "Solicitud de reunion aceptada"
     : "Solicitud de reunion rechazada";
-  const notificationMessage = isAccepted
+
+  const baseMessage = isAccepted
     ? "El destinatario ha aceptado tu solicitud de reunion."
     : "El destinatario ha rechazado tu solicitud de reunion.";
+
+  const notificationMessage = !detail
+    ? baseMessage
+    : isAccepted
+      ? `${baseMessage} Enlace de Google Meet: ${detail}`
+      : `${baseMessage} Motivo: ${detail}`;
+
   const payload = JSON.stringify({
     requestId,
-    action: decision
+    action: decision,
+    ...(detail
+      ? isAccepted
+        ? { meetUrl: detail }
+        : { reason: detail }
+      : {})
   });
 
-  const query = `INSERT INTO "notification" (user_id, actor_user_id, meeting_request_id,
-    notification_type, title, message, payload)
-    VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
-    RETURNING *`;
+  const query = `INSERT INTO "notification" (
+    user_id,
+    actor_user_id,
+    meeting_request_id,
+    notification_type,
+    title,
+    message,
+    payload
+  )
+  VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb)
+  RETURNING *`;
+
   const values = [
     requesterUserId,
     recipientUserId,
@@ -406,6 +486,26 @@ export async function createDecisionNotification(
     notificationMessage,
     payload
   ];
+
   const notification = await client.query(query, values);
   return notification.rows;
+}
+
+export async function findRequesterContact(
+  requestId: string,
+  client: PoolClient
+) {
+  const query = `SELECT
+    COALESCE(
+      NULLIF(BTRIM(CONCAT(u.name, ' ', u.first_surname)), ''),
+      mr.guest_name
+    ) AS requester_name,
+    COALESCE(u.email, mr.guest_email) AS requester_email
+    FROM "meeting_request" mr
+    LEFT JOIN "user" u ON u.id = mr.requester_user_id
+    WHERE mr.id = $1`;
+
+  const requester = await client.query(query, [requestId]);
+
+  return requester.rows as MeetingReqTypes.RequesterContactRow[];
 }

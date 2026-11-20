@@ -17,6 +17,8 @@ export interface CreateCalendarEventInput {
   description?: string;
   location?: string;
   isPublic: boolean;
+  withMeet?: boolean;
+  attendeeEmails?: string[];
 }
 
 export type UpdateCalendarEventInput = Partial<Omit<CreateCalendarEventInput, "isPublic">> & {
@@ -34,6 +36,7 @@ export interface CalendarEventResponse {
   isPublic: boolean;
   eventStatus: CalendarEventStatus;
   syncStatus: CalendarEventSyncStatus;
+  meetUrl?: string | null;
 }
 export interface CalendarEventMirror extends CalendarEventResponse {
   userId: string;
@@ -62,4 +65,5 @@ export interface GoogleCalendarEvent {
   timeZone: string;
   eventStatus: CalendarEventStatus;
   providerUpdatedAt: CalendarEventDateTime | null;
+  meetUrl?: string | null;
 }

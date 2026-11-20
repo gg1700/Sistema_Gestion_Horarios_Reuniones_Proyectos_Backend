@@ -197,7 +197,9 @@ export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequest
     resolvedAt: request.resolved_at ?? null,
     ownerResponseMessage: request.owner_response_message ?? null,
     guestName: request.guest_name ?? null,
-    guestEmail: request.guest_email ?? null
+    guestEmail: request.guest_email ?? null,
+    meetUrl: request.meet_url ?? null,
+    cancellationReason: request.cancellation_reason ?? null,
   };
 }
 
@@ -218,5 +220,7 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     resolvedAt: request.resolved_at,
     ownerResponseMessage: request.owner_response_message,
     guestEmail: request.guest_email ?? null,
+    meetUrl: request.meet_url ?? null,
+    cancellationReason: request.cancellation_reason ?? null,
   }
 }

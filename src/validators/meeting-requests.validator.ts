@@ -29,6 +29,24 @@ function validateMessage(message: unknown) {
   return formatedMessage;
 }
 
+function validateMeetingTitle(title: unknown, field: string) {
+  if (typeof title !== "string") {
+    throw new ValidationError(`${field}: tipo de dato invalido`);
+  }
+
+  const formattedTitle = collapseSpaces(
+    title.replace(/[\u0000-\u001F\u007F<>]/g, " "),
+  );
+
+  if (formattedTitle.length < 1 || formattedTitle.length > 150) {
+    throw new ValidationError(
+      `${field}: cantidad de caracteres invalido`,
+    );
+  }
+
+  return formattedTitle.charAt(0).toUpperCase() + formattedTitle.slice(1);
+}
+
 function validateTimezone(timezone: unknown) {
   if (!timezone || (typeof timezone !== "string")) {
     throw new ValidationError("Tipo de dato invalido en la zona horaria");
@@ -57,7 +75,7 @@ export function validateMeetingReqInfo(payload: unknown, guestRequest = false) {
 
   const processedInfo: MeetingReqTypes.MeetingRequest = {
     recipientHandle: validateHandlename(p.recipientHandle),
-    title: GeneralValidations.validateProperNoun(p.title, "Titulo de la Reunion"),
+    title: validateMeetingTitle(p.title, "Titulo de la Reunion"),
     startsAt: GeneralValidations.validateDate(p.startsAt, "Hora de Inicio"),
     endsAt: GeneralValidations.validateDate(p.endsAt, "Hora de Finalizacion"),
     timeZone: validateTimezone(p.timeZone)
@@ -81,7 +99,12 @@ export function validateUpdateMeetingRequest(payload: unknown) {
   if (Object.keys(p).length === 0)
     throw new ValidationError("Informacion a modificar no especificada");
   const processedInfo: MeetingReqTypes.UpdateMeetingRequest = {};
-  if (p.title !== undefined) processedInfo.title = GeneralValidations.validateProperNoun(p.title, "Titulo de la reunion");
+  if (p.title !== undefined) {
+    processedInfo.title = validateMeetingTitle(
+      p.title,
+      "Titulo de la reunion",
+    );
+  }
   if (p.message !== undefined) {
     if (typeof p.message !== "string")
       throw new ValidationError("Tipo de dato invalido en el mensaje");

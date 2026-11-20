@@ -84,38 +84,117 @@ export async function modifyPersonalInfo(
       }
 
       if (formatedInfo.phones) {
-        const phones = formatedInfo.phones;
+        const { existing, created } = splitEditable(formatedInfo.phones);
 
-        const countries = await ProfileRepo.findCountriesByCodes(formatedInfo.phones);
+        await verifyPhoneCountryCodes(formatedInfo.phones);
 
-        if (countries.length !== formatedInfo.phones.length)
-          throw new ValidationError("Error de codigos de pais");
+        if (formatedInfo.phones.length > 0) {
+          await ProfileRepo.insertUnregisteredNumber(
+            formatedInfo.phones,
+            client
+          );
+        }
 
-        await ProfileRepo.insertUnregisteredNumber(phones, client);
-        await ProfileRepo.updatePhoneInfo(userId, phones, client);
+        await ProfileRepo.deleteItemsNotIn(
+          "phones",
+          userId,
+          existing.map(item => item.id),
+          client
+        );
+
+        if (existing.length > 0) {
+          await ProfileRepo.updatePhoneInfo(userId, existing, client);
+        }
+
+        if (created.length > 0) {
+          await ProfileRepo.insertUserPhones(userId, created, client);
+        }
       }
 
       if (formatedInfo.contact_emails) {
-        const emails = formatedInfo.contact_emails;
+        const { existing, created } = splitEditable(formatedInfo.contact_emails);
 
-        await ProfileRepo.insertUnregisteredEmail(emails, client);
-        await ProfileRepo.updateEmailInfo(userId, emails, client);
+        if (formatedInfo.contact_emails.length > 0) {
+          await ProfileRepo.insertUnregisteredEmail(
+            formatedInfo.contact_emails,
+            client
+          );
+        }
+
+        await ProfileRepo.deleteItemsNotIn(
+          "contactEmails",
+          userId,
+          existing.map(item => item.id),
+          client
+        );
+
+        if (existing.length > 0) {
+          await ProfileRepo.updateEmailInfo(userId, existing, client);
+        }
+
+        if (created.length > 0) {
+          await ProfileRepo.insertUserEmails(userId, created, client);
+        }
       }
 
-      if (formatedInfo.addresses)
-        await ProfileRepo.updateAddressInfo(userId, formatedInfo.addresses, client);
+      if (formatedInfo.addresses) {
+        const { existing, created } = splitEditable(formatedInfo.addresses);
 
-      if (formatedInfo.links) await ProfileRepo.updateLinkInfo(userId, formatedInfo.links, client);
+        await ProfileRepo.deleteItemsNotIn(
+          "addresses",
+          userId,
+          existing.map(item => item.id),
+          client
+        );
+
+        if (existing.length > 0) {
+          await ProfileRepo.updateAddressInfo(userId, existing, client);
+        }
+
+        if (created.length > 0) {
+          await ProfileRepo.insertAddresses(userId, created, client);
+        }
+      }
+
+      if (formatedInfo.links) {
+        const { existing, created } = splitEditable(formatedInfo.links);
+
+        await ProfileRepo.deleteItemsNotIn(
+          "links",
+          userId,
+          existing.map(item => item.id),
+          client
+        );
+
+        if (existing.length > 0) {
+          await ProfileRepo.updateLinkInfo(userId, existing, client);
+        }
+
+        if (created.length > 0) {
+          await ProfileRepo.insertLinks(userId, created, client);
+        }
+      }
 
       if (formatedInfo.countries) {
-        const countries = await ProfileRepo.findCountriesByName(formatedInfo.countries);
+        const { existing, created } = splitEditable(formatedInfo.countries);
 
-        if (countries.length !== formatedInfo.countries.length)
-          throw new ValidationError("Pais o paises no encontrados");
+        await verifyCountryNames(formatedInfo.countries);
 
-        await ProfileRepo.updateCountryInfo(userId, formatedInfo.countries, client);
+        await ProfileRepo.deleteItemsNotIn(
+          "countries",
+          userId,
+          existing.map(item => item.id),
+          client
+        );
+
+        if (existing.length > 0) {
+          await ProfileRepo.updateCountryInfo(userId, existing, client);
+        }
+
+        if (created.length > 0) {
+          await ProfileRepo.insertUserCountries(userId, created, client);
+        }
       }
-
       await ProfileRepo.confirmProfileUpdate(userId, client);
     });
 
@@ -125,7 +204,13 @@ export async function modifyPersonalInfo(
       message: "Infomacion personal modificada correctamente",
     };
   } catch (err) {
-    return { result: false, statusCode: err instanceof AuthenticationError ? 401 : 500, message: (err as Error).message };
+    const statusCode = err instanceof ServerError ? err.statusCode : 500;
+
+    return {
+      result: false,
+      statusCode,
+      message: (err as Error).message
+    };
   }
 }
 
@@ -376,6 +461,29 @@ export async function getPublicProfile(handle: string) {
     ...publicProfile,
     firstLastName: publicProfile.firstSurname
   };
+}
+
+function splitEditable<T extends { id: string; visible?: boolean }>(
+  items: ProfileTypes.EditableItem<T>[]
+) {
+  const existing: T[] = [];
+  const created: Omit<T, "id">[] = [];
+
+  for (const item of items) {
+    const withVisibility = {
+      ...item,
+      visible: item.visible ?? true
+    };
+
+    if (item.id) {
+      existing.push(withVisibility as T);
+    } else {
+      const { id: _unused, ...rest } = withVisibility;
+      created.push(rest as Omit<T, "id">);
+    }
+  }
+
+  return { existing, created };
 }
 
 async function verifyPhoneCountryCodes(phones: Pick<ProfileTypes.PhoneDB, "code">[]) {

@@ -85,17 +85,68 @@ function validateCountry(country: unknown) {
   return { id: formatedId, countryName: formatedCountryName, visibility: GeneralValidations.validateVisibility(visibility) }
 }
 
+function validateEditableItems<T extends { id: string }, N>(
+  value: unknown,
+  existing: (item: unknown) => T,
+  created: (item: unknown) => N,
+  field: string,
+  maximum?: number): ProfileTypes.EditableItem<T>[] {
+  if (Array.isArray(value) && value.length === 0) return [];
+  const items = GeneralValidations.validateList(value, (item: unknown) => {
+    const candidate = GeneralValidations.validateObject(item, field);
+
+    return (candidate.id === undefined || candidate.id === null || candidate.id === "")
+      ? created(candidate) as unknown as ProfileTypes.EditableItem<T>
+      : existing(candidate) as ProfileTypes.EditableItem<T>;
+  }, field);
+
+  if (maximum !== undefined) {
+    validateMaximumItems(items, maximum, field);
+  }
+
+  return items;
+}
+
+function validateEditablePhone(value: unknown) {
+  const phone = validatePhone(value);
+
+  GeneralValidations.validatePhoneDigits(
+    phone.phoneNumber,
+    phone.countryCode.replace(/^\+/, ""),
+    "Telefono"
+  );
+
+  return {
+    ...phone,
+    countryCode: phone.countryCode.replace(/^\+/, "")
+  };
+}
+
 export function validateEditablePersonalInfo(payload: unknown) {
-  const p = payload as ProfileTypes.EditablePersonalInfo;
+  const p = payload as Record<string, unknown>;
   const proccessedInfo: ProfileTypes.EditablePersonalInfo = {};
   if (p.name !== undefined) proccessedInfo.name = GeneralValidations.validateProperNoun(p.name, "Nombre");
   if (p.firstSurname !== undefined) proccessedInfo.firstSurname = GeneralValidations.validateProperNoun(p.firstSurname, "Primer Apellido");
   if (p.surname !== undefined) proccessedInfo.surname = validateSurname(p.surname) as ProfileTypes.Surname;
-  if (p.phones !== undefined) proccessedInfo.phones = GeneralValidations.validateList(p.phones, validatePhone, "Telefonos");
-  if (p.contactEmails !== undefined) proccessedInfo.contactEmails = GeneralValidations.validateList(p.contactEmails, validateContactEmail, "Correos de Contacto")
-  if (p.addresses !== undefined) proccessedInfo.addresses = GeneralValidations.validateList(p.addresses, validateAdress, "Direcciones");
-  if (p.links !== undefined) proccessedInfo.links = GeneralValidations.validateList(p.links, validateLink, "Enlaces");
-  if (p.countries !== undefined) proccessedInfo.countries = GeneralValidations.validateList(p.countries, validateCountry, "Paises")
+  if (p.phones !== undefined)
+    proccessedInfo.phones = validateEditableItems(p.phones, validateEditablePhone, validateNewPhone, "Telefonos", ProfileConstants.maximumPhones);
+  if (p.contactEmails !== undefined)
+    proccessedInfo.contactEmails = validateEditableItems(p.contactEmails, validateContactEmail, validateNewContactEmail,
+      "Correos de Contacto", ProfileConstants.maximumContactEmails);
+  if (p.addresses !== undefined)
+    proccessedInfo.addresses = validateEditableItems(p.addresses, validateAdress, validateNewAddress, "Direcciones");
+  if (p.links !== undefined) {
+    proccessedInfo.links = validateEditableItems(
+      p.links,
+      validateLink,
+      validateNewLink,
+      "Enlaces",
+      ProfileConstants.maximumLinks
+    );
+  }
+  if (p.countries !== undefined)
+    proccessedInfo.countries = validateEditableItems(p.countries, validateCountry, validateNewCountry, "Paises");
+
   return proccessedInfo;
 }
 

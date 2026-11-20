@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   applyCalendarChanges: vi.fn(),
   clearCalendarSyncToken: vi.fn(),
   listGoogleCalendarChanges: vi.fn(),
+  findMeetingRequestIdForCalendarEvent: vi.fn(),
 }));
 
 vi.mock("../src/services/session.service", () => ({
@@ -37,6 +38,8 @@ vi.mock("../src/repositories/calendarEvents.repository", () => ({
   findCalendarSyncToken: mocks.findCalendarSyncToken,
   applyCalendarChanges: mocks.applyCalendarChanges,
   clearCalendarSyncToken: mocks.clearCalendarSyncToken,
+  findMeetingRequestIdForCalendarEvent:
+    mocks.findMeetingRequestIdForCalendarEvent,
 }));
 
 vi.mock("../src/services/googleCalendarClient.service", () => ({
@@ -141,6 +144,7 @@ beforeEach(() => {
   });
   mocks.applyCalendarChanges.mockResolvedValue(undefined);
   mocks.clearCalendarSyncToken.mockResolvedValue(undefined);
+  mocks.findMeetingRequestIdForCalendarEvent.mockResolvedValue(null);
 });
 
 describe("Calendar events - autenticación", () => {

@@ -11,7 +11,7 @@ function surnameToDB(surname: ProfileTypes.Surname) {
   return result;
 }
 
-function phoneToDB(phone: ProfileTypes.Phone) {
+function phoneToDB(phone: ProfileTypes.EditableItem<ProfileTypes.Phone>) {
   const result = {
     id: phone.id,
     number: phone.phoneNumber,
@@ -21,7 +21,7 @@ function phoneToDB(phone: ProfileTypes.Phone) {
   return result;
 }
 
-function contactEmailToDB(email: ProfileTypes.ContactEmail) {
+function contactEmailToDB(email: ProfileTypes.EditableItem<ProfileTypes.ContactEmail>) {
   const result = {
     id: email.id,
     address: email.email,
@@ -30,7 +30,7 @@ function contactEmailToDB(email: ProfileTypes.ContactEmail) {
   return result;
 }
 
-function addressToDB(address: ProfileTypes.Address) {
+function addressToDB(address: ProfileTypes.EditableItem<ProfileTypes.Address>) {
   const result = {
     id: address.id,
     address: address.address,
@@ -39,7 +39,7 @@ function addressToDB(address: ProfileTypes.Address) {
   return result;
 }
 
-function linkToDB(link: ProfileTypes.Link) {
+function linkToDB(link: ProfileTypes.EditableItem<ProfileTypes.Link>) {
   const result = {
     id: link.id,
     text: link.text,
@@ -49,7 +49,7 @@ function linkToDB(link: ProfileTypes.Link) {
   return result;
 }
 
-function countryToDB(country: ProfileTypes.Country) {
+function countryToDB(country: ProfileTypes.EditableItem<ProfileTypes.Country>) {
   const result = {
     id: country.id,
     name: country.countryName,
@@ -197,7 +197,9 @@ export function meetingRequestToResponse(request: MeetingReqTypes.MeetingRequest
     resolvedAt: request.resolved_at ?? null,
     ownerResponseMessage: request.owner_response_message ?? null,
     guestName: request.guest_name ?? null,
-    guestEmail: request.guest_email ?? null
+    guestEmail: request.guest_email ?? null,
+    meetUrl: request.meet_url ?? null,
+    cancellationReason: request.cancellation_reason ?? null,
   };
 }
 
@@ -218,5 +220,7 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     resolvedAt: request.resolved_at,
     ownerResponseMessage: request.owner_response_message,
     guestEmail: request.guest_email ?? null,
+    meetUrl: request.meet_url ?? null,
+    cancellationReason: request.cancellation_reason ?? null,
   }
 }

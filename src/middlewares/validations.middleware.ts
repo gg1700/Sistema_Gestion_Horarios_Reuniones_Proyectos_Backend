@@ -5,16 +5,6 @@ import * as AuthValidations from "../validators/auth.validator";
 import { ServerError } from "../helpers/errors.helper";
 import * as MeetingReqValidations from "../validators/meeting-requests.validator";
 
-export function modifyPersonalInfo(req: Request, res: Response, next: NextFunction) {
-  req.body = ProfileValidations.validateEditablePersonalInfo(req.body);
-  next();
-}
-
-export function modifyWorkExperience(req: Request, res: Response, next: NextFunction) {
-  req.body = WorkExperienceValidations.validateEditableWorkExperience(req.body);
-  next();
-}
-
 function validateRequestBody(validator: (payload: unknown) => unknown) {
   return function (req: Request, res: Response, next: NextFunction) {
     try {
@@ -29,6 +19,12 @@ function validateRequestBody(validator: (payload: unknown) => unknown) {
     }
   };
 }
+
+export const modifyPersonalInfo =
+  validateRequestBody(ProfileValidations.validateEditablePersonalInfo);
+
+export const modifyWorkExperience =
+  validateRequestBody(WorkExperienceValidations.validateEditableWorkExperience);
 
 export const completeRegistration = validateRequestBody(AuthValidations.validateRegisterUser);
 
@@ -53,6 +49,10 @@ export const updateMeetingRequest = validateRequestBody(
 
 export const decideMeetingRequest = validateRequestBody(
   MeetingReqValidations.validateDecisionBody
+);
+
+export const cancelMeetingRequest = validateRequestBody(
+  MeetingReqValidations.validateCancelBody
 );
 
 export const createWorkExperience = validateRequestBody(

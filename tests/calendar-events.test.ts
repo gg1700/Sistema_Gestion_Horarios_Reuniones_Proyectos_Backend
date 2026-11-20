@@ -1,3 +1,4 @@
+
 import express from "express";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -67,16 +68,27 @@ const calendar = {
   connectionStatus: "connected",
 };
 
+const eventStart = new Date(Date.now() + 24 * 60 * 60 * 1000);
+const eventEnd = new Date(eventStart.getTime() + 60 * 60 * 1000);
+
 const googleEvent = {
   id: "google-event-123",
   title: "Reunión de proyecto",
   description: "Revisión del Sprint 2",
   location: null,
-  startsAt: "2026-11-02T13:00:00.000Z",
-  endsAt: "2026-11-02T14:00:00.000Z",
+  startsAt: eventStart.toISOString(),
+  endsAt: eventEnd.toISOString(),
   timeZone: "America/La_Paz",
   eventStatus: "confirmed",
   providerUpdatedAt: null,
+};
+
+const input = {
+  title: "Reunión de proyecto",
+  startsAt: eventStart.toISOString(),
+  endsAt: eventEnd.toISOString(),
+  timeZone: "America/La_Paz",
+  description: "Revisión del Sprint 2",
 };
 
 const mirror = {
@@ -95,14 +107,6 @@ const mirror = {
   syncStatus: "synced",
   providerUpdatedAt: null,
   syncedAt: "2026-11-01T12:00:00.000Z",
-};
-
-const input = {
-  title: "Reunión de proyecto",
-  startsAt: "2026-11-02T09:00:00-04:00",
-  endsAt: "2026-11-02T10:00:00-04:00",
-  timeZone: "America/La_Paz",
-  description: "Revisión del Sprint 2",
 };
 
 const app = express();
@@ -290,6 +294,23 @@ describe("Calendar events - POST", () => {
     expect(mocks.createGoogleEvent).not.toHaveBeenCalled();
   });
 
+  it("rechaza crear eventos con fecha de inicio pasada", async () => {
+    const pastStart = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const pastEnd = new Date(Date.now() - 60 * 60 * 1000);
+
+    await request(app)
+      .post(path)
+      .set("Authorization", authorization)
+      .send({
+        ...input,
+        startsAt: pastStart.toISOString(),
+        endsAt: pastEnd.toISOString(),
+      })
+      .expect(400);
+
+    expect(mocks.createGoogleEvent).not.toHaveBeenCalled();
+  });
+
   it("rechaza campos desconocidos y propietarios enviados por el cliente", async () => {
     await request(app)
       .post(path)
@@ -342,6 +363,22 @@ describe("Calendar events - PATCH", () => {
         timeZone: "America/Bogota",
       }),
     );
+  });
+
+  it("rechaza modificar eventos para que comiencen en el pasado", async () => {
+    const pastStart = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const pastEnd = new Date(Date.now() - 60 * 60 * 1000);
+
+    await request(app)
+      .patch(`${path}/${eventId}`)
+      .set("Authorization", authorization)
+      .send({
+        startsAt: pastStart.toISOString(),
+        endsAt: pastEnd.toISOString(),
+      })
+      .expect(400);
+
+    expect(mocks.updateGoogleEvent).not.toHaveBeenCalled();
   });
 
   it("reintenta el guardado local sin repetir el PATCH de Google", async () => {

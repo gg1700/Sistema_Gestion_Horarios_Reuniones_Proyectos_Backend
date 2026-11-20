@@ -43,6 +43,7 @@ function toResponse(event: CalendarEventMirror): CalendarEventResponse {
     isPublic: event.isPublic,
     eventStatus: event.eventStatus,
     syncStatus: event.syncStatus,
+    meetUrl: event.meetUrl ?? null,
   };
 }
 
@@ -88,13 +89,12 @@ async function getOwnedEvent(
 function ensureValidRange(startsAt: string, endsAt: string): void {
   const start = Date.parse(startsAt);
   const end = Date.parse(endsAt);
-
-  if (
-    !Number.isFinite(start) ||
-    !Number.isFinite(end) ||
-    start >= end
-  ) {
+  if (!Number.isFinite(start) || !Number.isFinite(end) || start >= end)
     throw new ValidationError("startsAt debe ser anterior a endsAt");
+  if (start <= Date.now()) {
+    throw new ValidationError(
+      "La fecha y hora de inicio del evento debe ser futura",
+    );
   }
 }
 
@@ -131,6 +131,7 @@ function mirrorData(
     eventStatus: event.eventStatus,
     syncStatus: "synced" as const,
     providerUpdatedAt: event.providerUpdatedAt,
+    meetUrl: event.meetUrl ?? null,
   };
 }
 

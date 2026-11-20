@@ -1,23 +1,26 @@
+export type EditableItem<T extends { id: string }> =
+  Omit<T, "id"> & { id?: string };
+
 export interface EditablePersonalInfo {
   name?: string;
   firstSurname?: string;
   surname?: Surname;
-  phones?: Phone[];
-  contactEmails?: ContactEmail[];
-  addresses?: Address[];
-  links?: Link[];
-  countries?: Country[];
+  phones?: EditableItem<Phone>[];
+  contactEmails?: EditableItem<ContactEmail>[];
+  addresses?: EditableItem<Address>[];
+  links?: EditableItem<Link>[];
+  countries?: EditableItem<Country>[];
 }
 
 export interface EditablePersonalInfoDB {
   name?: string;
   first_surname?: string;
   surname?: SurnameDB;
-  phones?: PhoneDB[];
-  contact_emails?: ContactEmailDB[];
-  addresses?: AddressDB[];
-  links?: LinkDB[];
-  countries?: CountryDB[];
+  phones?: EditableItem<PhoneDB>[];
+  contact_emails?: EditableItem<ContactEmailDB>[];
+  addresses?: EditableItem<AddressDB>[];
+  links?: EditableItem<LinkDB>[];
+  countries?: EditableItem<CountryDB>[];
 }
 
 export interface Surname {

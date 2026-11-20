@@ -581,6 +581,7 @@ export async function createGoogleEvent(
 ): Promise<GoogleCalendarEvent> {
   const calendar = await getSelectedCalendar(userId);
   const accessToken = await getValidGoogleAccessToken(userId);
+  const url = buildGoogleUrl(calendar.calendarId);
 
   if (input.withMeet) {
     url.searchParams.set("conferenceDataVersion", "1");
@@ -592,7 +593,7 @@ export async function createGoogleEvent(
 
   const response = await requestGoogle<GoogleEventResource>(
     accessToken,
-    buildGoogleUrl(calendar.calendarId),
+    url,
     "POST",
     makeGoogleEventBody(input),
   );

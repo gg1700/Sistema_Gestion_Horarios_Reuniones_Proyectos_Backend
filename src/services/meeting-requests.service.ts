@@ -13,7 +13,6 @@ import type {
   GoogleCalendarForUser,
   GoogleCalendarEvent
 } from "../types/calendarEvents.types";
-import type { UpsertCalendarEventMirrorInput } from "../repositories/calendarEvents.repository";
 import { synchronizeCalendarEvents } from "./calendarEvents.service";
 
 export async function createMeetingRequest(

@@ -222,5 +222,6 @@ export function listedSentRequestToResponse(request: MeetingReqTypes.ListedReque
     guestEmail: request.guest_email ?? null,
     meetUrl: request.meet_url ?? null,
     cancellationReason: request.cancellation_reason ?? null,
+    cancellationActorHandle: request.cancellation_actor_handle ?? null,
   }
 }

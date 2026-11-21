@@ -114,6 +114,7 @@ export interface ListedRequestsRows {
   guest_email: string | null;
   meet_url?: string | null;
   cancellation_reason?: string | null;
+  cancellation_actor_handle: string | null;
 }
 
 export interface UpdateMeetingRequest {

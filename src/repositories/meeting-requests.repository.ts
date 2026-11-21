@@ -146,6 +146,16 @@ export async function listRequests(
   }
   const query = `SELECT mr.id, mr.title, mr.message, mr.requested_start_at, mr.requested_end_at,
     mr.timezone, mr.status, mr.created_at, mr.resolved_at, mr.owner_response_message, mr.meet_url, mr.cancellation_reason,
+    (
+    SELECT cancellation_actor.handle_name
+    FROM public.notification cancellation_notification
+    JOIN public."user" cancellation_actor
+    ON cancellation_actor.id = cancellation_notification.actor_user_id
+    WHERE cancellation_notification.meeting_request_id = mr.id
+    AND cancellation_notification.notification_type = 'meeting_request_cancelled'
+    ORDER BY cancellation_notification.created_at DESC
+    LIMIT 1
+  ) AS cancellation_actor_handle,
     ${counterpartHandle} AS recipient_handle,
     ${counterpartName} AS recipient_name,
     ${counterpartSurname} AS recipient_surname,
